@@ -1,0 +1,80 @@
+.profile {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.profile-content {
+  background: white;
+  border-radius: 12px;
+  padding: 3rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e2e8f0;
+  text-align: center;
+}
+
+/* Reuse styles from Analytics.css */
+.page-header {
+  margin-bottom: 2rem;
+}
+
+.page-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1a202c;
+  margin: 0 0 0.5rem 0;
+}
+
+.page-subtitle {
+  color: #718096;
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.coming-soon-icon {
+  font-size: 5rem;
+  margin-bottom: 1.5rem;
+  opacity: 0.7;
+}
+
+.coming-soon h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #2d3748;
+  margin: 0 0 1rem 0;
+}
+
+.coming-soon p {
+  color: #718096;
+  font-size: 1.1rem;
+  margin: 0;
+  max-width: 500px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .profile {
+    padding: 0 1rem;
+  }
+  
+  .page-title {
+    font-size: 1.5rem;
+  }
+  
+  .profile-content {
+    padding: 2rem 1rem;
+  }
+  
+  .coming-soon-icon {
+    font-size: 4rem;
+  }
+  
+  .coming-soon h2 {
+    font-size: 1.25rem;
+  }
+  
+  .coming-soon p {
+    font-size: 1rem;
+  }
+}

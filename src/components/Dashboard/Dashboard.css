@@ -1,0 +1,271 @@
+/* --- General Layout & Grids --- */
+.dashboard-header {
+    margin-bottom: 30px;
+}
+.dashboard-header h1 {
+    font-size: 28px;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 4px;
+}
+.dashboard-header p {
+    color: #7f8c8d;
+    font-size: 16px;
+}
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 25px;
+    margin-bottom: 30px;
+}
+.main-content-grid {
+    display: grid;
+    grid-template-columns: 2fr 1.2fr;
+    gap: 25px;
+}
+.content-card {
+    background-color: #fff;
+    padding: 25px;
+    border-radius: 12px;
+    border: 1px solid #ecf0f1;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.04);
+}
+
+/* --- Stat Card Styles --- */
+.stat-card {
+    background-color: #fff;
+    padding: 25px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    border: 1px solid #ecf0f1;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.04);
+}
+.stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+}
+.stat-icon-wrapper {
+    padding: 15px;
+    border-radius: 50%;
+    margin-right: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.stat-info .stat-title {
+    font-size: 14px;
+    color: #7f8c8d;
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 500;
+    text-transform: uppercase;
+}
+.stat-info .stat-value {
+    font-size: 26px;
+    font-weight: 600;
+}
+
+
+/* --- Upload Section Styles --- */
+.upload-section h2 { 
+    font-size: 20px; 
+    margin-bottom: 8px; 
+    color: #2c3e50; 
+}
+.upload-section > p { 
+    font-size: 14px; 
+    color: #7f8c8d; 
+    margin-bottom: 20px; 
+}
+.upload-area {
+    border: 2px dashed #dde2e7;
+    border-radius: 10px;
+    padding: 30px;
+    text-align: center;
+    cursor: pointer;
+    background-color: #fcfdff;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+}
+
+/* Hover state for when the mouse is over the area */
+.upload-area:hover { 
+    background-color: #f7f8fc; 
+    border-color: #b0aeff;
+}
+
+/* Style for when a file is being dragged over the area */
+.upload-area.dragging {
+    background-color: #f0eeff;
+    border-color: #5d46ff;
+    border-style: solid;
+}
+.upload-area.dragging .upload-text {
+    color: #5d46ff;
+    font-weight: 600;
+}
+
+/* --- NEW: Style for when an upload is in progress --- */
+.upload-area.uploading {
+    cursor: not-allowed;
+    background-color: #f8f9fa;
+}
+.upload-in-progress {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+}
+.upload-in-progress .MuiCircularProgress-colorPrimary {
+    color: #5d46ff !important; /* Make spinner match our theme */
+}
+.upload-in-progress p {
+    font-size: 16px;
+    font-weight: 500;
+    color: #5d46ff;
+}
+
+/* --- NEW: Style for the error message below the upload area --- */
+.upload-error-message {
+    color: #e74c3c; /* Red for errors */
+    font-weight: 500;
+    margin-top: 15px;
+    text-align: center;
+}
+
+/* Styles for the elements inside the upload area */
+.upload-icon-main { 
+    font-size: 48px !important; 
+    color: #5d46ff; 
+}
+.upload-text { 
+    font-size: 16px; 
+    color: #34495e; 
+    font-weight: 500; 
+    margin: 0; 
+}
+.upload-button { 
+    background-color: #5d46ff !important; 
+    text-transform: none !important; 
+    font-weight: 600 !important; 
+    padding: 10px 20px !important; 
+}
+.upload-support-text { 
+    font-size: 12px; 
+    color: #95a5a6; 
+    margin: 0; 
+}
+
+/* --- Recent Invoices Styles --- */
+.recent-invoices-section h2 {
+    font-size: 20px;
+    margin-bottom: 20px;
+    color: #2c3e50;
+}
+
+.invoice-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+/* The main container for each invoice row */
+.invoice-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 5px;
+    border-bottom: 1px solid #f0f2f5;
+}
+
+.invoice-item:last-child {
+    border-bottom: none;
+}
+
+/* --- THIS IS THE NEW GRID LAYOUT --- */
+.invoice-info-grid {
+    flex-grow: 1; /* Allows the grid to take up available space */
+    display: grid;
+    /* Defines two columns: 1st takes up space, 2nd is as wide as its content */
+    grid-template-columns: 1fr auto; 
+    /* Defines a gap between the two columns */
+    column-gap: 20px;
+     /* Defines a small gap between the rows */
+    row-gap: 6px;
+}
+
+/* Styles for the individual grid items */
+.invoice-id {
+    grid-column: 1; /* Places this in the first column */
+    font-weight: 600;
+    color: #34495e;
+    font-size: 0.9rem;
+}
+
+.invoice-amount {
+    grid-column: 2; /* Places this in the second column */
+    font-weight: 600;
+    color: #2c3e50;
+    font-size: 0.9rem;
+    text-align: right; /* Aligns the text to the right */
+}
+
+.invoice-vendor {
+    grid-column: 1; /* Places this in the first column */
+    font-size: 14px;
+    color: #7f8c8d;
+}
+
+/* The status badge */
+.invoice-status {
+    grid-column: 2; /* Places this in the second column */
+    justify-self: end; /* Aligns the entire badge element to the right */
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.invoice-status.paid { background-color: #e4f8f0; color: #2ecc71; }
+.invoice-status.pending { background-color: #fef5e7; color: #f39c12; }
+.invoice-status.overdue { background-color: #fdeeee; color: #e74c3c; }
+
+
+/* Styles for the action menu button on the far right */
+.invoice-actions {
+    margin-left: 16px; 
+}
+
+.invoice-action-btn {
+    padding: 6px !important;
+    color: #7f8c8d !important;
+}
+
+.invoice-action-btn:hover {
+    background-color: #f4f4f8 !important;
+    color: #333 !important;
+}
+
+/* Add this style to the end of Dashboard.css */
+
+.dialog-ok-button {
+    color: #5d46ff !important; /* Your primary purple color */
+    font-weight: 600 !important;
+}
+
+/* --- Responsive Adjustments --- */
+@media (max-width: 1200px) {
+    .main-content-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 768px) {
+    .stats-grid { grid-template-columns: 1fr; }
+}
