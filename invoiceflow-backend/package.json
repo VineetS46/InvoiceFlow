@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@azure/ai-form-recognizer": "^5.1.0",
+    "@azure/cosmos": "^4.5.0",
     "@azure/functions": "^4.0.0",
     "@azure/storage-blob": "^12.28.0"
   },
