@@ -11,7 +11,9 @@
     "@azure/ai-form-recognizer": "^5.1.0",
     "@azure/cosmos": "^4.5.0",
     "@azure/functions": "^4.0.0",
-    "@azure/storage-blob": "^12.28.0"
+    "@azure/storage-blob": "^12.28.0",
+    "firebase-admin": "^13.4.0",
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "azure-functions-core-tools": "^4.x"

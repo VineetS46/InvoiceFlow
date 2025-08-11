@@ -1,78 +1,76 @@
-// invoice-backend/src/functions/processInvoice.js
+// invoice-backend/src/functions/processInvoice.js (FINAL, CORRECTED LOGGING)
 
-// Import required libraries from Azure Functions and third-party packages.
-const { app, output } = require('@azure/functions');
+const { app } = require('@azure/functions');
 const { DocumentAnalysisClient, AzureKeyCredential } = require("@azure/ai-form-recognizer");
+const { CosmosClient } = require("@azure/cosmos");
+const { v4: uuidv4 } = require("uuid");
 
-// Define the connection to our Cosmos DB database.
-// This is an "Output Binding" that lets us save data with just one line of code.
-const cosmosOutput = output.cosmosDB({
-    databaseName: 'InvoiceDB',
-    containerName: 'Invoices',
-    connection: 'COSMOS_DB_CONNECTION_STRING', // Reads the secret key from settings
-    createIfNotExists: true,
-});
-
-// Configure the main function.
 app.storageBlob('processInvoice', {
-    // This function will automatically run when a new file appears in 'invoice-raw'.
     path: 'invoice-raw/{name}',
     connection: 'AZURE_STORAGE_CONNECTION_STRING',
-    
-    // Link the Cosmos DB output binding we defined above to this function.
-    extraOutputs: [cosmosOutput], 
-    
-    // This is the main handler function that executes on a trigger.
     handler: async (invoiceBlob, context) => {
         context.log(`Processing invoice blob: ${context.triggerMetadata.name}`);
+
+        // Initialize Cosmos DB client inside the handler
+        const cosmosConnectionString = process.env.AZURE_COSMOS_CONNECTION_STRING;
+        if (!cosmosConnectionString) {
+            // Use context.log for all log levels
+            context.log("Error: Azure Cosmos DB connection string is not set.");
+            return;
+        }
+        const cosmosClient = new CosmosClient(cosmosConnectionString);
+        const database = cosmosClient.database("InvoiceDB");
+        const container = database.container("Invoices");
         
-        // Securely load credentials from environment variables (local.settings.json).
+        const userId = context.triggerMetadata.metadata.userid;
+        if (!userId) {
+            // Use context.log for all log levels
+            context.log(`Error: Blob ${context.triggerMetadata.name} is missing 'userid' metadata. Skipping.`);
+            return;
+        }
+        context.log(`Invoice belongs to user: ${userId}`);
+
         const endpoint = process.env.AZURE_DOC_INTEL_ENDPOINT;
         const key = process.env.AZURE_DOC_INTEL_KEY;
 
-        if (!endpoint || !key) {
-            context.log("Error: AI service endpoint or key is not set.");
-            return;
-        }
-
         try {
-            // Create the client to connect to the Document Intelligence AI service.
+            // 1. Analyze with Document Intelligence
             const credential = new AzureKeyCredential(key);
             const client = new DocumentAnalysisClient(endpoint, credential);
-
-            // Send the uploaded file (invoiceBlob) to the AI for analysis.
             const poller = await client.beginAnalyzeDocument("prebuilt-invoice", invoiceBlob);
-            
-            // Wait for the AI to finish reading the document.
             const { documents } = await poller.pollUntilDone();
-            
-            context.log("--- Invoice Analysis Complete ---");
-
             const invoice = documents[0];
+
             if (invoice) {
-                // Create a clean JSON object with the extracted data.
-                const invoiceDataToSave = {
-                    id: context.triggerMetadata.name, // Use filename as a unique ID
-                    userId: "user-123-abc", // This is temporary, will be dynamic later
+                // 2. Extract data
+                const vendorName = invoice.fields.VendorName?.value || 'N/A';
+                const invoiceTotalObject = invoice.fields.InvoiceTotal?.value;
+                const invoiceTotal = invoiceTotalObject?.amount || 0;
+                const invoiceDate = invoice.fields.InvoiceDate?.value || new Date();
+
+                // 3. Create the database item
+                const newItem = {
+                    id: uuidv4(),
+                    userId: userId,
                     fileName: context.triggerMetadata.name,
-                    vendor: invoice.fields.VendorName?.value || 'N/A',
-                    total: invoice.fields.InvoiceTotal?.value?.amount || 0,
-                    invoiceDate: invoice.fields.InvoiceDate?.value || null,
-                    status: 'processed',
-                    uploadedOn: new Date()
+                    status: "processed",
+                    vendorName: vendorName,
+                    invoiceDate: invoiceDate,
+                    invoiceTotal: invoiceTotal,
+                    uploadedAt: new Date()
                 };
 
-                // Save the structured data to Cosmos DB using the output binding.
-                // This single line handles the entire database operation.
-                context.extraOutputs.set(cosmosOutput, invoiceDataToSave);
-
-                context.log(`Successfully extracted and saved data for invoice: ${invoiceDataToSave.id}`);
+                // 4. Save to Cosmos DB
+                const { resource: createdItem } = await container.items.create(newItem);
+                context.log(`Successfully saved processed invoice data for user ${userId} with id: ${createdItem.id}`);
             } else {
-                context.log("Warning: No invoice document found in the result.");
+                // Use context.log for all log levels
+                context.log(`Warning: No invoice document found in the result for blob ${context.triggerMetadata.name}.`);
             }
+
         } catch (error) {
-            // Log any errors that occur during the process.
-            context.log("Error during processing:", error.message);
+            // Use context.log for all log levels
+            context.log(`Error: An error occurred during invoice processing for blob ${context.triggerMetadata.name}:`, error.message);
         }
     }
 });
