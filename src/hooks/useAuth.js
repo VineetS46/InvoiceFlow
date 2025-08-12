@@ -1,13 +1,8 @@
-// src/hooks/useAuth.js (FINAL AND PERMANENT FIX)
+// src/hooks/useAuth.js (FINAL, ROBUST VERSION)
 import React, { useContext, useState, useEffect, createContext } from 'react';
 import { 
-    onAuthStateChanged, 
-    signOut, 
-    createUserWithEmailAndPassword, 
-    signInWithEmailAndPassword, 
-    GoogleAuthProvider, 
-    signInWithPopup,
-    sendPasswordResetEmail,
+    onAuthStateChanged, signOut, createUserWithEmailAndPassword, 
+    signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup,
     updateProfile 
 } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
@@ -31,23 +26,22 @@ export function AuthProvider({ children }) {
 
         if (userDoc.exists()) {
           const firestoreData = userDoc.data();
-          
-          // --- THIS IS THE PERMANENT FIX ---
-          // We are NOT creating a new object. We are modifying the original
-          // Firebase 'user' object to include our custom properties.
-          // This preserves all the original methods like getIdToken().
           user.username = firestoreData.username;
           user.displayName = firestoreData.username || user.displayName;
-          
-          setCurrentUser(user); // Set the modified, but still "real", user object
-
-        } else {
-          // If no custom doc, just use the original user object
           setCurrentUser(user);
+        } else if (user.providerData.some(p => p.providerId === 'google.com')) {
+            // This handles first-time Google Sign-In
+            const username = user.displayName || user.email.split('@')[0];
+            await setDoc(userDocRef, { username: username, email: user.email, uid: user.uid });
+            user.username = username;
+            setCurrentUser(user);
+        } else {
+            setCurrentUser(user);
         }
       } else {
         setCurrentUser(null);
       }
+      // CRITICAL FIX: Only set loading to false AFTER all async work is done.
       setLoading(false);
     });
     return unsubscribe;
@@ -61,33 +55,26 @@ export function AuthProvider({ children }) {
     await setDoc(doc(db, "users", user.uid), {
         username: username,
         email: email,
+        uid: user.uid // Also store the uid here
     });
 
-    // Manually update state after signup to ensure immediate consistency
     user.username = username;
-    setCurrentUser(user);
-    
+    setCurrentUser(user); // Manually update state for immediate feedback
     return userCredential;
   }
 
-  function login(email, password) { return signInWithEmailAndPassword(auth, email, password); }
-  function loginWithGoogle() { const provider = new GoogleAuthProvider(); return signInWithPopup(auth, provider); }
-  function logout() { return signOut(auth); }
-  function resetPassword(email) { return sendPasswordResetEmail(auth, email); }
-
   const value = {
     currentUser,
-    loading,
+    loading, // The dashboard will now wait for this to be false
     signup,
-    login,
-    loginWithGoogle,
-    logout,
-    resetPassword
+    login: (email, password) => signInWithEmailAndPassword(auth, email, password),
+    loginWithGoogle: () => signInWithPopup(auth, new GoogleAuthProvider()),
+    logout: () => signOut(auth),
   };
 
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   );
 }

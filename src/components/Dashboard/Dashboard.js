@@ -1,10 +1,12 @@
-// src/components/Dashboard/Dashboard.js (FINAL, PERMANENT FIX)
-import React, { useState, useRef, useCallback } from 'react';
+// src/components/Dashboard/Dashboard.js (FINAL, COMPLETE UI RESTORED)
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import './Dashboard.css';
 
-// All necessary imports
-import { Button, Menu, MenuItem, IconButton, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, CircularProgress } from '@material-ui/core';
+import { 
+    Button, Menu, MenuItem, IconButton, Dialog, DialogActions,
+    DialogContent, DialogContentText, DialogTitle, CircularProgress 
+} from '@material-ui/core';
 import DescriptionIcon from '@material-ui/icons/Description';
 import AttachMoneyIcon from '@material-ui/icons/AttachMoney';
 import WarningIcon from '@material-ui/icons/Warning';
@@ -12,69 +14,104 @@ import CloudUploadIcon from '@material-ui/icons/CloudUpload';
 import MoreVertIcon from '@material-ui/icons/MoreVert';
 
 const Dashboard = () => {
-    const auth = useAuth(); // Get the entire auth context object
+    const auth = useAuth();
     const fileInputRef = useRef(null);
 
-    // All state variables
+    // State for data
+    const [invoices, setInvoices] = useState([]);
+    const [stats, setStats] = useState({ totalInvoices: 0, totalAmount: 0, overdue: 0 });
+    const [isLoadingData, setIsLoadingData] = useState(true);
+    const [fetchError, setFetchError] = useState('');
+
+    // State for UI interactions
     const [isDragging, setIsDragging] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
+    const [uploadError, setUploadError] = useState('');
+    
+    // State for dialogs and menus
     const [anchorEl, setAnchorEl] = useState(null);
     const [selectedInvoiceId, setSelectedInvoiceId] = useState(null);
     const [showSuccessDialog, setShowSuccessDialog] = useState(false);
     const [uploadedFileCount, setUploadedFileCount] = useState(0);
-    const [isUploading, setIsUploading] = useState(false);
-    const [uploadError, setUploadError] = useState('');
     const [showAuthErrorDialog, setShowAuthErrorDialog] = useState(false);
-    
-    const handleDialogClose = () => setShowSuccessDialog(false);
-    const handleAuthErrorDialogClose = () => setShowAuthErrorDialog(false);
+    const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
+    const [duplicateMessage, setDuplicateMessage] = useState('');
 
-    const processFiles = useCallback(async (files) => {
-        if (!files || files.length === 0) return;
-        
-        // --- THIS IS THE PERMANENT FIX ---
-        // Get the most up-to-date user object directly from the auth context.
+    const formatCurrency = (amount, currencyCode) => {
+        if (typeof amount !== 'number') return 'N/A';
+        try { return new Intl.NumberFormat(undefined, { style: 'currency', currency: currencyCode }).format(amount); } 
+        catch { return amount.toLocaleString(); }
+    };
+
+    const fetchInvoices = useCallback(async () => {
         const currentUser = auth.currentUser;
-        
-        if (!currentUser) {
-            setShowAuthErrorDialog(true);
-            return;
+        if (!currentUser) { setIsLoadingData(false); setInvoices([]); return; }
+        setIsLoadingData(true);
+        setFetchError('');
+        try {
+            const token = await currentUser.getIdToken();
+            const response = await fetch('http://localhost:7071/api/getInvoices', { headers: { 'Authorization': `Bearer ${token}` } });
+            if (!response.ok) throw new Error('Failed to fetch your invoices.');
+            const data = await response.json();
+            setInvoices(data);
+        } catch (error) {
+            console.error("Error fetching invoices:", error);
+            setFetchError(error.message);
+        } finally {
+            setIsLoadingData(false);
         }
+    }, [auth.currentUser]);
 
+    useEffect(() => {
+        if (!auth.loading) { fetchInvoices(); }
+    }, [auth.loading, fetchInvoices]);
+
+    useEffect(() => {
+        if (invoices.length >= 0) {
+            const totalAmount = invoices.reduce((sum, invoice) => sum + (invoice.invoiceTotal || 0), 0);
+            const overdueCount = invoices.filter(inv => inv.status === 'overdue').length;
+            setStats({ totalInvoices: invoices.length, totalAmount, overdue: overdueCount });
+        }
+    }, [invoices]);
+
+    const processFiles = async (files) => {
+        if (!files || files.length === 0) return;
+        const currentUser = auth.currentUser;
+        if (!currentUser) { setShowAuthErrorDialog(true); return; }
         setIsUploading(true);
         setUploadError('');
-
+        setDuplicateMessage('');
         try {
             const token = await currentUser.getIdToken();
             for (const file of files) {
-                const getUrlResponse = await fetch(`http://localhost:7071/api/getUploadUrl?fileName=${encodeURIComponent(file.name)}`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (getUrlResponse.status === 401) throw new Error('Authentication failed. Please log in again.');
-                if (!getUrlResponse.ok) throw new Error('Failed to get a secure upload URL.');
-                
-                const { uploadUrl } = await getUrlResponse.json();
-                const uploadResponse = await fetch(uploadUrl, {
-                    method: 'PUT',
-                    body: file,
-                    headers: { 'Content-Type': file.type, 'x-ms-blob-type': 'BlockBlob', 'x-ms-meta-userid': currentUser.uid }
-                });
-                if (!uploadResponse.ok) throw new Error(`Failed to upload ${file.name}.`);
+                const formData = new FormData();
+                formData.append('invoiceFile', file);
+                const response = await fetch('http://localhost:7071/api/uploadAndProcessInvoice', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: formData });
+                if (response.status === 409) {
+                    const errorMsg = await response.text();
+                    setDuplicateMessage(errorMsg);
+                    setShowDuplicateDialog(true);
+                    return; 
+                }
+                if (!response.ok) throw new Error(`Upload failed for ${file.name}.`);
             }
-            
             setUploadedFileCount(files.length);
             setShowSuccessDialog(true);
+            fetchInvoices();
         } catch (error) {
             console.error("Upload process failed:", error);
             setUploadError(error.message);
         } finally {
             setIsUploading(false);
         }
-    }, [auth]); // Depend on the entire auth object to ensure updates.
+    };
     
-    // Other handlers
+    const handleDialogClose = () => setShowSuccessDialog(false);
+    const handleAuthErrorDialogClose = () => setShowAuthErrorDialog(false);
+    const handleDuplicateDialogClose = () => setShowDuplicateDialog(false);
     const handleMenuClick = (event, invoiceId) => { setAnchorEl(event.currentTarget); setSelectedInvoiceId(invoiceId); };
     const handleMenuClose = () => { setAnchorEl(null); setSelectedInvoiceId(null); };
-    const handleMarkAsPaid = () => { console.log(`Marking invoice ${selectedInvoiceId} as paid.`); handleMenuClose(); };
+    const handleMarkAsPaid = async () => { /* ... */ };
     const handleUploadAreaClick = () => { if (!isUploading) fileInputRef.current.click(); };
     const handleFileChange = (e) => processFiles(e.target.files);
     const handleDragEnter = (e) => { if (!isUploading) { e.preventDefault(); e.stopPropagation(); setIsDragging(true); } };
@@ -82,20 +119,8 @@ const Dashboard = () => {
     const handleDragOver = (e) => { if (!isUploading) { e.preventDefault(); e.stopPropagation(); } };
     const handleDrop = (e) => { if (!isUploading) { e.preventDefault(); e.stopPropagation(); processFiles(e.dataTransfer.files); e.dataTransfer.clearData(); } };
 
-    // --- ALL UI DATA IS RESTORED ---
-    const statCardsData = [
-        { icon: <DescriptionIcon style={{ color: "#5d46ff" }} />, title: "Total Invoices", value: "147", iconBg: "#eaf1ff" },
-        { icon: <AttachMoneyIcon style={{ color: "#2ecc71" }} />, title: "Total Amount", value: "$52,840.50", iconBg: "#e4f8f0" },
-        { icon: <WarningIcon style={{ color: "#e74c3c" }} />, title: "Overdue Invoices", value: "3", iconBg: "#fdeeee" }
-    ];
-    const recentInvoicesData = [
-        { id: 'INV-2024-001', vendor: 'ABC Corporation', amount: '$2,500.00', status: 'paid' },
-        { id: 'INV-2024-002', vendor: 'XYZ Ltd', amount: '$1,800.75', status: 'pending' },
-        { id: 'INV-2024-003', vendor: 'Tech Solutions', amount: '$4,200.00', status: 'overdue' },
-    ];
-    
-    // We use auth.currentUser here too, for consistency.
     const user = auth.currentUser;
+    const isLoading = auth.loading || isLoadingData;
 
     return (
         <div className="dashboard-page">
@@ -105,28 +130,47 @@ const Dashboard = () => {
             </header>
 
             <div className="stats-grid">
-                {statCardsData.map((card, index) => (<div key={index} className="stat-card"><div className="stat-icon-wrapper" style={{ backgroundColor: card.iconBg }}>{card.icon}</div><div className="stat-info"><span className="stat-title">{card.title}</span><span className="stat-value" style={{ color: card.icon.props.style.color }}>{card.value}</span></div></div>))}
+                <div className="stat-card"><div className="stat-icon-wrapper blue"><DescriptionIcon /></div><div className="stat-info"><span className="stat-title">TOTAL INVOICES</span><span className="stat-value">{isLoading ? '...' : stats.totalInvoices}</span></div></div>
+                <div className="stat-card"><div className="stat-icon-wrapper green"><AttachMoneyIcon /></div><div className="stat-info"><span className="stat-title">TOTAL AMOUNT</span><span className="stat-value">{isLoading ? '...' : stats.totalAmount.toLocaleString()}</span></div></div>
+                <div className="stat-card overdue-card"><div className="stat-icon-wrapper red"><WarningIcon /></div><div className="stat-info"><span className="stat-title">OVERDUE INVOICES</span><span className="stat-value">{isLoading ? '...' : stats.overdue}</span></div></div>
             </div>
 
-            <div className="main-content-grid">
-                <div className="content-card upload-section">
-                    <h2>Upload New Invoice</h2>
-                    <p>Select your invoice document(s) for automated processing.</p>
-                    <div className={`upload-area ${isDragging ? 'dragging' : ''} ${isUploading ? 'uploading' : ''}`} onClick={handleUploadAreaClick} onDrop={handleDrop} onDragOver={handleDragOver} onDragEnter={handleDragEnter} onDragLeave={handleDragLeave}>
-                        {isUploading ? (<div className="upload-in-progress"><CircularProgress size={40} /><p>Uploading, please wait...</p></div>) : (<><input type="file" ref={fileInputRef} onChange={handleFileChange} style={{ display: 'none' }} accept="image/jpeg,image/png,application/pdf" multiple /><CloudUploadIcon className="upload-icon-main" /><p className="upload-text">Drop your invoice(s) here or click the button</p><Button variant="contained" color="primary" className="upload-button">Select File(s)</Button><p className="upload-support-text">Supports JPG, PNG, and PDF up to 10MB</p></>)}
+            {isLoading ? (
+                <div className="loading-container"><CircularProgress size={50} /></div>
+            ) : fetchError ? (
+                <div className="error-container">{fetchError}</div>
+            ) : (
+                <div className="main-content-grid">
+                    <div className="content-card upload-section">
+                        <h2>Upload New Invoice</h2>
+                        <p>Select your invoice document(s) for automated processing.</p>
+                        <div className={`upload-area ${isDragging ? 'dragging' : ''} ${isUploading ? 'uploading' : ''}`} onClick={handleUploadAreaClick} onDrop={handleDrop} onDragOver={handleDragOver} onDragEnter={handleDragEnter} onDragLeave={handleDragLeave}>
+                            {isUploading ? (<div className="upload-in-progress"><CircularProgress size={40} /><p>Uploading, please wait...</p></div>) : (<><input type="file" ref={fileInputRef} onChange={handleFileChange} style={{ display: 'none' }} accept="image/jpeg,image/png,application/pdf" multiple /><CloudUploadIcon className="upload-icon-main" /><p className="upload-text">Drop your invoice(s) here or click the button</p><Button variant="contained" color="primary" className="upload-button">Select File(s)</Button><p className="upload-support-text">Supports JPG, PNG, and PDF up to 10MB</p></>)}
+                        </div>
+                        {uploadError && <p className="upload-error-message">{uploadError}</p>}
                     </div>
-                    {uploadError && <p className="upload-error-message">{uploadError}</p>}
+                    <div className="content-card recent-invoices-section">
+                        <h2>Recent Invoices</h2>
+                        {invoices.length > 0 ? (
+                            <ul className="invoice-list">
+                                {invoices.slice(0, 5).map((invoice) => (
+                                    <li key={invoice.id} className="invoice-item">
+                                        <div className="invoice-info-grid"><span className="invoice-id">{invoice.vendorName || 'N/A'}</span><span className="invoice-amount">{formatCurrency(invoice.invoiceTotal, invoice.currency)}</span><span className="invoice-vendor">{new Date(invoice.invoiceDate).toLocaleDateString()}</span><span className={`invoice-status ${invoice.status}`}>{invoice.status?.toUpperCase() || 'UNKNOWN'}</span></div>
+                                        <div className="invoice-actions"><IconButton onClick={(e) => handleMenuClick(e, invoice.id)}><MoreVertIcon /></IconButton></div>
+                                    </li>
+                                ))}
+                            </ul>
+                        ) : (
+                            <p className="no-invoices-message">You haven't uploaded any invoices yet. Get started!</p>
+                        )}
+                        <Menu id="invoice-action-menu" anchorEl={anchorEl} keepMounted open={Boolean(anchorEl)} onClose={handleMenuClose}><MenuItem onClick={handleMarkAsPaid}>Mark as Paid</MenuItem></Menu>
+                    </div>
                 </div>
-
-                <div className="content-card recent-invoices-section">
-                    <h2>Recent Invoices</h2>
-                    <ul className="invoice-list">{recentInvoicesData.map((invoice) => (<li key={invoice.id} className="invoice-item"><div className="invoice-info-grid"><span className="invoice-id">{invoice.id}</span><span className="invoice-amount">{invoice.amount}</span><span className="invoice-vendor">{invoice.vendor}</span><span className={`invoice-status ${invoice.status}`}>{invoice.status.toUpperCase()}</span></div><div className="invoice-actions">{invoice.status !== 'paid' && (<IconButton aria-label="actions" className="invoice-action-btn" onClick={(e) => handleMenuClick(e, invoice.id)}><MoreVertIcon /></IconButton>)}</div></li>))}</ul>
-                    <Menu id="invoice-action-menu" anchorEl={anchorEl} keepMounted open={Boolean(anchorEl)} onClose={handleMenuClose}><MenuItem onClick={handleMarkAsPaid}>Mark as Paid</MenuItem></Menu>
-                </div>
-            </div>
-
-            <Dialog open={showSuccessDialog} onClose={handleDialogClose}><DialogTitle>Upload Successful</DialogTitle><DialogContent><DialogContentText>{uploadedFileCount} invoice(s) have been uploaded successfully. They will be processed and appear in your history shortly.</DialogContentText></DialogContent><DialogActions><Button onClick={handleDialogClose} className="dialog-ok-button" autoFocus>OK</Button></DialogActions></Dialog>
-            <Dialog open={showAuthErrorDialog} onClose={handleAuthErrorDialogClose}><DialogTitle>Authentication Required</DialogTitle><DialogContent><DialogContentText>You must be logged in to upload files. Please log out and log in again if you believe this is an error.</DialogContentText></DialogContent><DialogActions><Button onClick={handleAuthErrorDialogClose} className="dialog-ok-button" autoFocus>OK</Button></DialogActions></Dialog>
+            )}
+            
+            <Dialog open={showSuccessDialog} onClose={handleDialogClose}><DialogTitle>Upload Successful</DialogTitle><DialogContent><DialogContentText>{uploadedFileCount} invoice(s) have been uploaded successfully.</DialogContentText></DialogContent><DialogActions><Button onClick={handleDialogClose} className="dialog-ok-button" autoFocus>OK</Button></DialogActions></Dialog>
+            <Dialog open={showAuthErrorDialog} onClose={handleAuthErrorDialogClose}><DialogTitle>Authentication Required</DialogTitle><DialogContent><DialogContentText>You must be logged in to upload files.</DialogContentText></DialogContent><DialogActions><Button onClick={handleAuthErrorDialogClose} className="dialog-ok-button" autoFocus>OK</Button></DialogActions></Dialog>
+            <Dialog open={showDuplicateDialog} onClose={handleDuplicateDialogClose}><DialogTitle>Duplicate Invoice Detected</DialogTitle><DialogContent><DialogContentText>{duplicateMessage}</DialogContentText></DialogContent><DialogActions><Button onClick={handleDuplicateDialogClose} className="dialog-ok-button" autoFocus>OK</Button></DialogActions></Dialog>
         </div>
     );
 };
