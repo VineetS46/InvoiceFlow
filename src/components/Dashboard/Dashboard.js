@@ -1,4 +1,4 @@
-// src/components/Dashboard/Dashboard.js (FINAL, COMPLETE UI RESTORED)
+// src/components/Dashboard/Dashboard.js (FINAL, COMPLETE, AND CORRECTED)
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import './Dashboard.css';
@@ -38,9 +38,9 @@ const Dashboard = () => {
     const [duplicateMessage, setDuplicateMessage] = useState('');
 
     const formatCurrency = (amount, currencyCode) => {
-        if (typeof amount !== 'number') return 'N/A';
-        try { return new Intl.NumberFormat(undefined, { style: 'currency', currency: currencyCode }).format(amount); } 
-        catch { return amount.toLocaleString(); }
+        if (typeof amount !== 'number' || !currencyCode) return amount?.toLocaleString() || 'N/A';
+        try { return new Intl.NumberFormat('en-IN', { style: 'currency', currency: currencyCode }).format(amount); } 
+        catch { return `₹${amount.toLocaleString()}`; }
     };
 
     const fetchInvoices = useCallback(async () => {
@@ -68,9 +68,10 @@ const Dashboard = () => {
 
     useEffect(() => {
         if (invoices.length >= 0) {
-            const totalAmount = invoices.reduce((sum, invoice) => sum + (invoice.invoiceTotal || 0), 0);
+            const paidInvoices = invoices.filter(invoice => invoice.status === 'paid');
+            const totalAmountPaid = paidInvoices.reduce((sum, invoice) => sum + (invoice.invoiceTotal || 0), 0);
             const overdueCount = invoices.filter(inv => inv.status === 'overdue').length;
-            setStats({ totalInvoices: invoices.length, totalAmount, overdue: overdueCount });
+            setStats({ totalInvoices: invoices.length, totalAmount: totalAmountPaid, overdue: overdueCount });
         }
     }, [invoices]);
 
@@ -83,6 +84,7 @@ const Dashboard = () => {
         setDuplicateMessage('');
         try {
             const token = await currentUser.getIdToken();
+            let successfulUploads = 0;
             for (const file of files) {
                 const formData = new FormData();
                 formData.append('invoiceFile', file);
@@ -94,10 +96,13 @@ const Dashboard = () => {
                     return; 
                 }
                 if (!response.ok) throw new Error(`Upload failed for ${file.name}.`);
+                successfulUploads++;
             }
-            setUploadedFileCount(files.length);
-            setShowSuccessDialog(true);
-            fetchInvoices();
+            if (successfulUploads > 0) {
+                setUploadedFileCount(successfulUploads);
+                setShowSuccessDialog(true);
+                fetchInvoices();
+            }
         } catch (error) {
             console.error("Upload process failed:", error);
             setUploadError(error.message);
@@ -111,7 +116,24 @@ const Dashboard = () => {
     const handleDuplicateDialogClose = () => setShowDuplicateDialog(false);
     const handleMenuClick = (event, invoiceId) => { setAnchorEl(event.currentTarget); setSelectedInvoiceId(invoiceId); };
     const handleMenuClose = () => { setAnchorEl(null); setSelectedInvoiceId(null); };
-    const handleMarkAsPaid = async () => { /* ... */ };
+    const handleMarkAsPaid = async () => {
+        const user = auth.currentUser;
+        if (!selectedInvoiceId || !user) return;
+        const originalInvoiceId = selectedInvoiceId;
+        handleMenuClose();
+        try {
+            const token = await user.getIdToken();
+            const response = await fetch('http://localhost:7071/api/markInvoiceAsPaid', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: originalInvoiceId })
+            });
+            if (!response.ok) throw new Error('Failed to update the invoice status.');
+            await fetchInvoices();
+        } catch (error) {
+            console.error("Error marking invoice as paid:", error);
+        }
+    };
     const handleUploadAreaClick = () => { if (!isUploading) fileInputRef.current.click(); };
     const handleFileChange = (e) => processFiles(e.target.files);
     const handleDragEnter = (e) => { if (!isUploading) { e.preventDefault(); e.stopPropagation(); setIsDragging(true); } };
@@ -122,50 +144,70 @@ const Dashboard = () => {
     const user = auth.currentUser;
     const isLoading = auth.loading || isLoadingData;
 
+    // This is the top-level loading check. It prevents the "flash" of an empty dashboard.
+    if (auth.loading) {
+        return <div className="loading-container"><CircularProgress size={50} /></div>;
+    }
+
     return (
         <div className="dashboard-page">
             <header className="dashboard-header">
-                <h1>Welcome back{user?.displayName ? `, ${user.displayName}` : ''}!</h1>
+                {user && <h1>Welcome back, {user.displayName}!</h1>}
                 <p>Here’s what’s happening with your invoices today.</p>
             </header>
 
-            <div className="stats-grid">
-                <div className="stat-card"><div className="stat-icon-wrapper blue"><DescriptionIcon /></div><div className="stat-info"><span className="stat-title">TOTAL INVOICES</span><span className="stat-value">{isLoading ? '...' : stats.totalInvoices}</span></div></div>
-                <div className="stat-card"><div className="stat-icon-wrapper green"><AttachMoneyIcon /></div><div className="stat-info"><span className="stat-title">TOTAL AMOUNT</span><span className="stat-value">{isLoading ? '...' : stats.totalAmount.toLocaleString()}</span></div></div>
-                <div className="stat-card overdue-card"><div className="stat-icon-wrapper red"><WarningIcon /></div><div className="stat-info"><span className="stat-title">OVERDUE INVOICES</span><span className="stat-value">{isLoading ? '...' : stats.overdue}</span></div></div>
-            </div>
-
-            {isLoading ? (
+            {/* This ternary handles the loading of the main content AFTER auth is confirmed */}
+            {isLoadingData ? (
                 <div className="loading-container"><CircularProgress size={50} /></div>
             ) : fetchError ? (
                 <div className="error-container">{fetchError}</div>
             ) : (
-                <div className="main-content-grid">
-                    <div className="content-card upload-section">
-                        <h2>Upload New Invoice</h2>
-                        <p>Select your invoice document(s) for automated processing.</p>
-                        <div className={`upload-area ${isDragging ? 'dragging' : ''} ${isUploading ? 'uploading' : ''}`} onClick={handleUploadAreaClick} onDrop={handleDrop} onDragOver={handleDragOver} onDragEnter={handleDragEnter} onDragLeave={handleDragLeave}>
-                            {isUploading ? (<div className="upload-in-progress"><CircularProgress size={40} /><p>Uploading, please wait...</p></div>) : (<><input type="file" ref={fileInputRef} onChange={handleFileChange} style={{ display: 'none' }} accept="image/jpeg,image/png,application/pdf" multiple /><CloudUploadIcon className="upload-icon-main" /><p className="upload-text">Drop your invoice(s) here or click the button</p><Button variant="contained" color="primary" className="upload-button">Select File(s)</Button><p className="upload-support-text">Supports JPG, PNG, and PDF up to 10MB</p></>)}
+                <>
+                    <div className="stats-grid">
+                        <div className="stat-card"><div className="stat-icon-wrapper blue"><DescriptionIcon /></div><div className="stat-info"><span className="stat-title">TOTAL INVOICES</span><span className="stat-value">{stats.totalInvoices}</span></div></div>
+                        <div className="stat-card"><div className="stat-icon-wrapper green"><AttachMoneyIcon /></div><div className="stat-info"><span className="stat-title">TOTAL AMOUNT (PAID)</span><span className="stat-value">{isLoading ? '...' : stats.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div></div>
+                        <div className="stat-card overdue-card"><div className="stat-icon-wrapper red"><WarningIcon /></div><div className="stat-info"><span className="stat-title">OVERDUE INVOICES</span><span className="stat-value">{stats.overdue}</span></div></div>
+                    </div>
+                
+                    <div className="main-content-grid">
+                        <div className="content-card upload-section">
+                            <h2>Upload New Invoice</h2>
+                            <p>Select your invoice document(s) for automated processing.</p>
+                            <div className={`upload-area ${isDragging ? 'dragging' : ''} ${isUploading ? 'uploading' : ''}`} onClick={handleUploadAreaClick} onDrop={handleDrop} onDragOver={handleDragOver} onDragEnter={handleDragEnter} onDragLeave={handleDragLeave}>
+                                {isUploading ? (<div className="upload-in-progress"><CircularProgress size={40} /><p>Uploading, please wait...</p></div>) : (<><input type="file" ref={fileInputRef} onChange={handleFileChange} style={{ display: 'none' }} accept="image/jpeg,image/png,application/pdf" multiple /><CloudUploadIcon className="upload-icon-main" /><p className="upload-text">Drop your invoice(s) here or click the button</p><Button variant="contained" color="primary" className="upload-button">Select File(s)</Button><p className="upload-support-text">Supports JPG, PNG, and PDF up to 10MB</p></>)}
+                            </div>
+                            {uploadError && <p className="upload-error-message">{uploadError}</p>}
                         </div>
-                        {uploadError && <p className="upload-error-message">{uploadError}</p>}
+                        <div className="content-card recent-invoices-section">
+                            <h2>Recent Invoices</h2>
+                            {invoices.length > 0 ? (
+                                <ul className="invoice-list">
+                                    {invoices.slice(0, 5).map((invoice) => (
+                                        <li key={invoice.id} className="invoice-item">
+                                            <div className="invoice-info-grid">
+                                                <span className="invoice-id">{invoice.vendorName || 'N/A'}</span>
+                                                <span className="invoice-amount">{formatCurrency(invoice.invoiceTotal, invoice.currency)}</span>
+                                                <span className="invoice-description">
+                                                    {(invoice.lineItems && invoice.lineItems.length > 0)
+                                                        ? `${invoice.lineItems[0].description.substring(0, 40)}...`
+                                                        : new Date(invoice.invoiceDate).toLocaleDateString()
+                                                    }
+                                                </span>
+                                                <span className={`invoice-status ${invoice.status}`}>{invoice.status?.toUpperCase() || 'UNKNOWN'}</span>
+                                            </div>
+                                            <div className="invoice-actions">
+                                                {invoice.status !== 'paid' && (<IconButton onClick={(e) => handleMenuClick(e, invoice.id)}><MoreVertIcon /></IconButton>)}
+                                            </div>
+                                        </li>
+                                    ))}
+                                </ul>
+                            ) : (
+                                <p className="no-invoices-message">You haven't uploaded any invoices yet. Get started!</p>
+                            )}
+                            <Menu id="invoice-action-menu" anchorEl={anchorEl} keepMounted open={Boolean(anchorEl)} onClose={handleMenuClose}><MenuItem onClick={handleMarkAsPaid}>Mark as Paid</MenuItem></Menu>
+                        </div>
                     </div>
-                    <div className="content-card recent-invoices-section">
-                        <h2>Recent Invoices</h2>
-                        {invoices.length > 0 ? (
-                            <ul className="invoice-list">
-                                {invoices.slice(0, 5).map((invoice) => (
-                                    <li key={invoice.id} className="invoice-item">
-                                        <div className="invoice-info-grid"><span className="invoice-id">{invoice.vendorName || 'N/A'}</span><span className="invoice-amount">{formatCurrency(invoice.invoiceTotal, invoice.currency)}</span><span className="invoice-vendor">{new Date(invoice.invoiceDate).toLocaleDateString()}</span><span className={`invoice-status ${invoice.status}`}>{invoice.status?.toUpperCase() || 'UNKNOWN'}</span></div>
-                                        <div className="invoice-actions"><IconButton onClick={(e) => handleMenuClick(e, invoice.id)}><MoreVertIcon /></IconButton></div>
-                                    </li>
-                                ))}
-                            </ul>
-                        ) : (
-                            <p className="no-invoices-message">You haven't uploaded any invoices yet. Get started!</p>
-                        )}
-                        <Menu id="invoice-action-menu" anchorEl={anchorEl} keepMounted open={Boolean(anchorEl)} onClose={handleMenuClose}><MenuItem onClick={handleMarkAsPaid}>Mark as Paid</MenuItem></Menu>
-                    </div>
-                </div>
+                </>
             )}
             
             <Dialog open={showSuccessDialog} onClose={handleDialogClose}><DialogTitle>Upload Successful</DialogTitle><DialogContent><DialogContentText>{uploadedFileCount} invoice(s) have been uploaded successfully.</DialogContentText></DialogContent><DialogActions><Button onClick={handleDialogClose} className="dialog-ok-button" autoFocus>OK</Button></DialogActions></Dialog>

@@ -166,6 +166,14 @@
 }
 
 /* --- Recent Invoices Styles --- */
+.invoice-description {
+    grid-column: 1;
+    font-size: 14px;
+    color: #7f8c8d;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
 .recent-invoices-section h2 {
     font-size: 20px;
     margin-bottom: 20px;
