@@ -177,6 +177,30 @@
   transition: margin-left 0.3s ease;
 }
 
+
+/* --- Role Badge Styles --- */
+.role-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  margin-left: 10px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  vertical-align: middle;
+  line-height: 1.5;
+}
+
+.role-badge.admin {
+  background-color: #fdeeee;
+  color: #e74c3c;
+}
+
+.role-badge.user {
+  background-color: #eaf1ff;
+  color: #5d46ff;
+}
+
 /* Mobile Responsiveness */
 .mobile-header { display: none; }
 .sidebar-overlay { display: none; }

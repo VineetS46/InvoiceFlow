@@ -1,96 +1,145 @@
-// src/pages/Admin.js
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '../hooks/useAuth';
-import './Admin.css';
-import { Button, CircularProgress } from '@material-ui/core';
+// src/pages/Admin.js (FINAL WITH SEARCH BAR)
+import React, { useEffect, useState, useCallback } from "react";
+import {
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  Paper, Typography, Button, CircularProgress, Box, TextField, InputAdornment
+} from "@material-ui/core";
+import PeopleOutlineIcon from "@material-ui/icons/PeopleOutline";
+import SecurityIcon from "@material-ui/icons/Security";
+import SearchIcon from "@material-ui/icons/Search"; // <-- NEW: Import Search Icon
+import { db } from "../firebaseConfig";
+import { collection, getDocs, doc, updateDoc } from "firebase/firestore";
+import "./Admin.css";
 
-const Admin = () => {
-    const { user } = useAuth();
-    const [users, setUsers] = useState([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState('');
+function Admin() {
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState(""); // <-- NEW: State for the search bar
 
-    useEffect(() => {
-        const fetchUsers = async () => {
-            if (!user) return;
-            setIsLoading(true);
-            try {
-                const token = await user.getIdToken();
-                const response = await fetch('http://localhost:7071/api/getUsers', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (!response.ok) throw new Error('Could not fetch users.');
-                const data = await response.json();
-                setUsers(data);
-            } catch (err) {
-                setError(err.message);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-        fetchUsers();
-    }, [user]);
+  const fetchUsers = useCallback(async () => {
+    setLoading(true);
+    try {
+      const querySnapshot = await getDocs(collection(db, "users"));
+      const userList = querySnapshot.docs.map((doc) => ({
+        uid: doc.id,
+        ...doc.data(),
+      }));
+      setUsers(userList);
+    } catch (error) {
+      console.error("Error fetching users: ", error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-    const handleSetRole = async (targetUid, newRole) => {
-        if (!window.confirm(`Are you sure you want to make this user an '${newRole}'?`)) return;
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
 
-        try {
-            const token = await user.getIdToken();
-            const response = await fetch('http://localhost:7071/api/setRole', {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ uid: targetUid, role: newRole })
-            });
-            if (!response.ok) throw new Error('Failed to set role.');
-            // Refresh the user list to show the change
-            const updatedUsers = users.map(u => u.uid === targetUid ? { ...u, role: newRole } : u);
-            setUsers(updatedUsers);
-            alert('Role updated successfully!');
-        } catch (err) {
-            alert(`Error: ${err.message}`);
-        }
-    };
+  const handleSetRole = async (uid, newRole) => {
+    if (!window.confirm(`Are you sure you want to promote this user to an Admin?`)) return;
+    try {
+      const userRef = doc(db, "users", uid);
+      await updateDoc(userRef, { role: newRole });
+      await fetchUsers();
+      alert('User has been promoted to Admin successfully!');
+    } catch (error) {
+      console.error("Error updating role: ", error);
+      alert('Failed to update role. You may not have permission.');
+    }
+  };
 
-    if (isLoading) return <div className="loading-container"><CircularProgress /></div>;
-    if (error) return <div className="error-container">{error}</div>;
+  // --- NEW: Filter users based on the search term ---
+  const filteredUsers = users.filter(user => {
+    const name = user.username || user.displayName || "";
+    const email = user.email || "";
+    return name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+           email.toLowerCase().includes(searchTerm.toLowerCase());
+  });
+
+  const renderTableContent = () => {
+    if (loading) return <Box className="status-container"><CircularProgress /></Box>;
+    if (filteredUsers.length === 0) return <Box className="status-container"><Typography color="textSecondary">No users found.</Typography></Box>;
 
     return (
-        <div className="admin-panel">
-            <h1>Admin Panel - User Management</h1>
-            <table className="users-table">
-                <thead>
-                    <tr>
-                        <th>Username</th>
-                        <th>Email</th>
-                        <th>Role</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {users.map((u) => (
-                        <tr key={u.uid}>
-                            <td>{u.username}</td>
-                            <td>{u.email}</td>
-                            <td>
-                                <span className={`role-badge ${u.role}`}>{u.role || 'user'}</span>
-                            </td>
-                            <td>
-                                {u.role !== 'admin' ? (
-                                    <Button variant="contained" color="primary" onClick={() => handleSetRole(u.uid, 'admin')}>
-                                        Make Admin
-                                    </Button>
-                                ) : (
-                                    <Button variant="contained" color="secondary" onClick={() => handleSetRole(u.uid, 'user')}>
-                                        Remove Admin
-                                    </Button>
-                                )}
-                            </td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-        </div>
+      <TableContainer>
+        <Table>
+          <TableHead className="table-header">
+            <TableRow>
+              <TableCell><b>Username</b></TableCell>
+              <TableCell><b>Email</b></TableCell>
+              <TableCell><b>Role</b></TableCell>
+              <TableCell align="center"><b>Actions</b></TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {filteredUsers.map((user) => ( // <-- Use filteredUsers here
+              <TableRow key={user.uid} hover>
+                <TableCell>{user.username || user.displayName || "N/A"}</TableCell>
+                <TableCell>{user.email}</TableCell>
+                <TableCell>
+                  <Typography className={`role-text role-text-${user.role}`}>
+                    {user.role?.toUpperCase()}
+                  </Typography>
+                </TableCell>
+                <TableCell align="center">
+                  {user.role !== "admin" && (
+                    <Button
+                      variant="outlined" size="small"
+                      color="primary"
+                      startIcon={<SecurityIcon />}
+                      onClick={() => handleSetRole(user.uid, "admin")}
+                    >
+                      Make Admin
+                    </Button>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
     );
-};
+  };
+
+  return (
+    <div className="admin-container">
+      <Box className="admin-header">
+        <Typography variant="h4" component="h1" color="textPrimary" style={{ fontWeight: 500, marginBottom: '0.5rem' }}>
+            Admin Control Panel
+        </Typography>
+        <Typography variant="subtitle1" color="textSecondary">
+            Manage user roles, permissions, and access for the entire application.
+        </Typography>
+      </Box>
+
+      <Paper elevation={2} style={{ padding: '24px', borderRadius: '16px' }}>
+        <Box className="card-header">
+          <Typography variant="h6" component="h2" className="card-title">
+            <PeopleOutlineIcon />
+            Manage Team Members
+          </Typography>
+          {/* --- NEW: SEARCH BAR --- */}
+          <TextField
+            variant="outlined"
+            size="small"
+            placeholder="Search by name or email..."
+            className="search-field"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon />
+                </InputAdornment>
+              ),
+            }}
+          />
+        </Box>
+        {renderTableContent()}
+      </Paper>
+    </div>
+  );
+}
 
 export default Admin;

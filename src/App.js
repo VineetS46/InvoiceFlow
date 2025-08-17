@@ -6,9 +6,11 @@ import Layout from './components/Layout/Layout';
 import Login from './components/Auth/Login';
 import Dashboard from './components/Dashboard/Dashboard';
 import Analytics from './pages/Analytics';
-// Import other pages as needed
 import InvoiceHistory from './pages/InvoiceHistory';
 import Profile from './pages/Profile';
+
+import Admin from './pages/Admin';
+import AdminRoute from './components/AdminRoute';
 
 // Custom component to protect routes for logged-in users
 const PrivateRoute = ({ children, ...rest }) => {
@@ -57,6 +59,9 @@ function App() {
           <PrivateRoute path="/profile">
             <Profile />
           </PrivateRoute>
+          <AdminRoute path="/admin">
+  <Admin />
+</AdminRoute>
           
           {/* If no other route matches, this will catch it */}
           <Redirect to="/" />

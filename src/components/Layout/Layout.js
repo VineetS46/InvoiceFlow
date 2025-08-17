@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import { Security as AdminIcon } from '@material-ui/icons';
 import { 
   Avatar, 
   IconButton, 
@@ -21,9 +22,11 @@ import './Layout.css';
 import Logo from '../../assets/icon/logo.svg';
 
 const Layout = ({ children }) => {
-  const { currentUser, logout } = useAuth();
+  
+  const { currentUser, logout, isAdmin, userRole } = useAuth();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+
 
   const navItems = [
     { path: '/', label: 'Dashboard', icon: <DashboardIcon htmlColor="#5d46ff" /> },
@@ -32,6 +35,13 @@ const Layout = ({ children }) => {
     { path: '/profile', label: 'Profile', icon: <ProfileIcon htmlColor="#5d46ff" /> },
   ];
 
+  if (isAdmin) {
+    navItems.push({
+      path: '/admin',
+      label: 'Admin Panel',
+      icon: <AdminIcon htmlColor="#5d46ff" />
+    });
+  }
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
   };
@@ -57,7 +67,7 @@ const Layout = ({ children }) => {
           <div className="sidebar-top">
             <div className="logo-container">
               <img src={Logo} alt="InvoiceFlow" className="logo" />
-              <Typography variant="h6" className="logo-text">
+              <Typography variant="h4" className="logo-text">
                 InvoiceFlow
               </Typography>
             </div>
@@ -79,6 +89,7 @@ const Layout = ({ children }) => {
                   </Link>
                 </li>
               ))}
+              
             </ul>
           </nav>
 
@@ -93,8 +104,10 @@ const Layout = ({ children }) => {
               </Avatar>
               <div className="user-details">
                 <Typography className="user-name">
-                  {currentUser?.displayName || 'User'}
-                </Typography>
+  {currentUser?.displayName || 'User'}
+  {/* This is the new role badge */}
+  {userRole && <span className={`role-badge ${userRole}`}>{userRole}</span>}
+</Typography>
                 <Typography className="user-email">
                   {currentUser?.email}
                 </Typography>
