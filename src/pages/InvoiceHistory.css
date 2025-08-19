@@ -1,12 +1,125 @@
-/* src/pages/InvoiceHistory.css */
-.invoice-history-page { padding: 30px; }
-.invoice-history-header { margin-bottom: 30px; }
-.invoice-history-header h1 { font-size: 28px; font-weight: 600; color: #2c3e50; }
-.invoice-table-container { background: white; border-radius: 12px; box-shadow: 0 4px 25px rgba(0,0,0,0.05); }
-.invoice-table-container .MuiTableHead-root .MuiTableCell-head { font-weight: 600; }
-.status-badge { display: inline-block; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 700; text-transform: capitalize; }
-.status-badge.paid { background-color: #e4f8f0; color: #2ecc71; }
-.status-badge.pending { background-color: #fef5e7; color: #f39c12; }
-.status-badge.overdue { background-color: #fdeeee; color: #e74c3c; }
-.loading-container, .error-container { display: flex; justify-content: center; align-items: center; padding: 100px; }
-.error-container { color: #e74c3c; font-weight: 500; }
+/* --- Global Page Styles --- */
+.invoice-history-page {
+    background-color: #f4f6f8; /* A light, professional grey background */
+    min-height: 100vh;
+    padding: 24px;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+}
+
+/* --- Header Section --- */
+.invoice-history-header {
+    max-width: 1200px;
+    margin: 0 auto 24px auto; /* Center the header */
+    padding-bottom: 16px;
+    border-bottom: 1px solid #dfe3e8;
+}
+
+.invoice-history-header h1 {
+    font-size: 28px;
+    font-weight: 600;
+    color: #172b4d; /* A deep, professional blue */
+    margin: 0;
+}
+
+/* --- Table Container Styling --- */
+.invoice-table-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    border-radius: 8px !important; /* Material-UI override for smoother corners */
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05) !important;
+    overflow: hidden; /* Ensures the border-radius is respected by the table */
+}
+
+/* --- Table Header Styling --- */
+.invoice-table-container .MuiTableHead-root {
+    background-color: #fafbfb; /* Very light grey for header */
+}
+
+.invoice-table-container .MuiTableCell-head {
+    font-weight: 600 !important;
+    color: #6b778c; /* Muted text color for headers */
+    font-size: 14px !important;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid #dfe3e8 !important;
+}
+
+/* --- Table Body & Row Styling --- */
+.invoice-table-container .MuiTableRow-root {
+    transition: background-color 0.2s ease-in-out;
+}
+
+.invoice-table-container .MuiTableRow-root:hover {
+    background-color: #f0f8ff !important; /* Light blue hover effect */
+}
+
+.invoice-table-container .MuiTableCell-body {
+    color: #42526e; /* Softer black for body text */
+    font-size: 15px !important;
+    border-bottom: 1px solid #f1f3f5 !important; /* Lighter row separators */
+}
+
+.invoice-table-container .MuiTableRow-root:last-child .MuiTableCell-body {
+    border-bottom: none !important; /* Remove border from the last row */
+}
+
+/* --- Status Badge Styling --- */
+.status-badge {
+    padding: 4px 12px;
+    border-radius: 16px;
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: inline-block;
+    color: #fff;
+    min-width: 80px; /* Ensure badges have a consistent width */
+    text-align: center;
+}
+
+.status-badge.paid {
+    background-color: #e3fcef;
+    color: #006644; /* Dark green text for high contrast */
+}
+
+.status-badge.pending {
+    background-color: #fffae6;
+    color: #974F0C; /* Dark orange/brown for high contrast */
+}
+
+.status-badge.overdue {
+    background-color: #ffebe6;
+    color: #bf2600; /* Dark red for high contrast */
+}
+
+/* --- Loading and Error State Styling --- */
+.loading-container, .error-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 80vh;
+    flex-direction: column;
+}
+
+.error-container {
+    color: #bf2600; /* Use the "overdue" error color */
+    font-size: 18px;
+    font-weight: 500;
+}
+
+/* --- Responsive Design for Smaller Screens --- */
+@media (max-width: 768px) {
+    .invoice-history-page {
+        padding: 16px;
+    }
+
+    .invoice-history-header h1 {
+        font-size: 22px;
+    }
+
+    /* This is a simple fix for small screens, but a more advanced solution
+       would be to refactor the table into a card-based layout. */
+    .invoice-table-container {
+        overflow-x: auto; /* Allow horizontal scrolling for the table */
+    }
+}

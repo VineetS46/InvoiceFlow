@@ -2,7 +2,8 @@
 const { CosmosClient } = require("@azure/cosmos");
 
 // --- These names MUST EXACTLY match your Azure Portal configuration ---
-const databaseId = "invoiceflow-db";
+// This now correctly points to your DATABASE, not your ACCOUNT.
+const databaseId = "InvoiceDB"; // <-- THIS WAS THE ERROR
 const containerId = "Invoices";
 // ---------------------------------------------------------------------
 

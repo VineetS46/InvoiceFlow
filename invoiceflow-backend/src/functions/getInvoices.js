@@ -1,4 +1,4 @@
-// invoiceflow-backend/src/functions/getInvoices.js (FINAL, PRODUCTION-READY)
+// invoiceflow-backend/src/functions/getInvoices.js 
 
 const { app } = require('@azure/functions');
 const { CosmosClient } = require("@azure/cosmos");

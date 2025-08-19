@@ -13,6 +13,8 @@
     "@azure/functions": "^4.0.0",
     "@azure/storage-blob": "^12.28.0",
     "firebase-admin": "^13.4.0",
+    "fontkit": "^2.0.4",
+    "pdf-lib": "^1.17.1",
     "uuid": "^11.1.0"
   },
   "devDependencies": {
