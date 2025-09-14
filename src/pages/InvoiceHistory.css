@@ -1,12 +1,150 @@
-/* src/pages/InvoiceHistory.css */
-.invoice-history-page { padding: 30px; }
-.invoice-history-header { margin-bottom: 30px; }
-.invoice-history-header h1 { font-size: 28px; font-weight: 600; color: #2c3e50; }
-.invoice-table-container { background: white; border-radius: 12px; box-shadow: 0 4px 25px rgba(0,0,0,0.05); }
-.invoice-table-container .MuiTableHead-root .MuiTableCell-head { font-weight: 600; }
-.status-badge { display: inline-block; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 700; text-transform: capitalize; }
-.status-badge.paid { background-color: #e4f8f0; color: #2ecc71; }
-.status-badge.pending { background-color: #fef5e7; color: #f39c12; }
-.status-badge.overdue { background-color: #fdeeee; color: #e74c3c; }
-.loading-container, .error-container { display: flex; justify-content: center; align-items: center; padding: 100px; }
-.error-container { color: #e74c3c; font-weight: 500; }
+/* --- Global Page Styles --- */
+.invoice-history-page {
+    background-color: #f4f6f8;
+    min-height: 100vh;
+    padding: 24px;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+}
+
+/* --- NEW: Unified Main Panel --- */
+.main-panel {
+    max-width: 1400px; /* Wider for better use of space */
+    margin: 0 auto;
+    border-radius: 8px !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05) !important;
+    overflow: hidden; /* Important for containing table corners */
+}
+
+/* --- NEW: Panel Header Styling --- */
+.panel-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid #dfe3e8;
+}
+
+.panel-title {
+    font-size: 24px !important;
+    font-weight: 600 !important;
+    color: #172b4d;
+    margin: 0 !important;
+}
+
+/* --- NEW: Panel Filter Bar Styling --- */
+.panel-filters {
+    padding: 16px 24px;
+    background-color: #fafbfb;
+    border-bottom: 1px solid #dfe3e8;
+}
+
+/* --- Table Header (inside the panel) --- */
+.main-panel .MuiTableHead-root {
+    background-color: #f7f9fc;
+}
+
+.main-panel .MuiTableCell-head {
+    font-weight: 600 !important;
+    color: #6b778c;
+    font-size: 13px !important;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid #dfe3e8 !important;
+    padding: 12px 16px;
+}
+
+/* --- Table Body & Row (inside the panel) --- */
+.main-panel .MuiTableRow-root {
+    transition: background-color 0.2s ease-in-out;
+}
+
+.main-panel .MuiTableRow-root:hover {
+    background-color: #f0f8ff !important;
+}
+
+.main-panel .MuiTableCell-body {
+    color: #42526e;
+    font-size: 15px !important;
+    border-bottom: 1px solid #f1f3f5 !important;
+    padding: 14px 16px;
+}
+
+.main-panel .MuiTableRow-root:last-child .MuiTableCell-body {
+    border-bottom: none !important;
+}
+
+/* --- NEW: Category Button Styling --- */
+.category-button, .category-button-uncategorized {
+    text-transform: none !important;
+    font-size: 14px !important;
+    padding: 4px 8px !important;
+    border-radius: 6px !important;
+    font-weight: 500 !important;
+}
+
+.category-button {
+    background-color: #e3f2fd !important; /* Light blue */
+    color: #1976d2 !important; /* Dark blue text */
+}
+
+.category-button-uncategorized {
+    background-color: #fffbe6 !important; /* Light yellow */
+    color: #974f0c !important; /* Dark orange text */
+    font-style: italic;
+}
+
+
+/* --- Status Badge Styling (No Change) --- */
+.status-badge {
+    padding: 4px 12px;
+    border-radius: 16px;
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    display: inline-block;
+    min-width: 80px;
+    text-align: center;
+}
+
+.status-badge.paid {
+    background-color: #e3fcef;
+    color: #006644;
+}
+
+.status-badge.pending {
+    background-color: #fffbe6;
+    color: #974F0C;
+}
+
+.status-badge.overdue {
+    background-color: #ffebe6;
+    color: #bf2600;
+}
+
+/* --- Loading and Error State Styling (No Change) --- */
+.loading-container, .error-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 80vh;
+    flex-direction: column;
+}
+
+.error-container {
+    color: #bf2600;
+    font-size: 18px;
+    font-weight: 500;
+}
+
+/* --- Responsive Design (No Change) --- */
+@media (max-width: 768px) {
+    .invoice-history-page {
+        padding: 12px;
+    }
+    .panel-header {
+        padding: 16px;
+    }
+    .panel-filters {
+        padding: 12px;
+    }
+    .panel-title {
+        font-size: 20px !important;
+    }
+}

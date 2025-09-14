@@ -1,79 +1,142 @@
-.analytics {
-  max-width: 1200px;
-  margin: 0 auto;
+.analytics-page {
+  background-color: #f4f6f8;
+  min-height: 100vh;
+  padding: 24px;
+  font-family: 'Inter', sans-serif;
 }
 
-.page-header {
-  margin-bottom: 2rem;
+/* --- UPDATED: Header to match other pages --- */
+.analytics-header {
+  max-width: 1400px; /* Wider max-width for analytics */
+  margin: 0 auto 24px auto;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #dfe3e8;
 }
 
-.page-title {
-  font-size: 2rem;
-  font-weight: 700;
-  color: #1a202c;
-  margin: 0 0 0.5rem 0;
-}
-
-.page-subtitle {
-  color: #718096;
-  font-size: 1.1rem;
-  margin: 0;
-}
-
-.analytics-content {
-  background: white;
-  border-radius: 12px;
-  padding: 3rem;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-  border: 1px solid #e2e8f0;
-  text-align: center;
-}
-
-.coming-soon-icon {
-  font-size: 5rem;
-  margin-bottom: 1.5rem;
-  opacity: 0.7;
-}
-
-.coming-soon h2 {
-  font-size: 1.5rem;
+.analytics-header h1 {
+  font-size: 28px;
   font-weight: 600;
-  color: #2d3748;
-  margin: 0 0 1rem 0;
-}
-
-.coming-soon p {
-  color: #718096;
-  font-size: 1.1rem;
+  color: #172b4d; /* Professional dark blue, matching other pages */
   margin: 0;
-  max-width: 500px;
-  margin-left: auto;
-  margin-right: auto;
 }
 
-/* Responsive Design */
-@media (max-width: 768px) {
-  .analytics {
-    padding: 0 1rem;
-  }
-  
-  .page-title {
-    font-size: 1.5rem;
-  }
-  
-  .analytics-content {
-    padding: 2rem 1rem;
-  }
-  
-  .coming-soon-icon {
-    font-size: 4rem;
-  }
-  
-  .coming-soon h2 {
-    font-size: 1.25rem;
-  }
-  
-  .coming-soon p {
-    font-size: 1rem;
-  }
+/* --- Filters Section --- */
+.filters-paper {
+  max-width: 1400px;
+  margin: 0 auto 24px auto;
+  padding: 16px !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05) !important;
+}
+
+/* --- UPDATED: KPI Cards with Icons --- */
+.kpi-container {
+  max-width: 1400px;
+  margin: 0 auto 24px auto !important;
+}
+
+.kpi-card {
+  padding: 20px !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05) !important;
+  display: flex;
+  align-items: center;
+  gap: 16px; /* Space between icon and text */
+}
+
+.kpi-icon {
+  background-color: #e3f2fd;
+  color: #1976d2;
+  padding: 12px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.kpi-text .MuiTypography-h6 {
+  color: #666;
+  font-weight: 500;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.kpi-value {
+  color: #172b4d;
+  font-weight: 600;
+  font-size: 1.75rem;
+}
+
+.kpi-value.overdue {
+  color: #bf2600; /* Red color for overdue count */
+}
+
+/* --- Charts Section --- */
+.charts-container {
+  max-width: 1400px;
+  margin: 0 auto !important;
+}
+
+.chart-paper {
+  padding: 24px !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05) !important;
+  height: 100%;
+}
+
+.chart-title {
+  color: #333;
+  margin-bottom: 24px !important;
+  font-weight: 600;
+}
+
+/* --- NEW: Custom Legend for Pie Chart --- */
+.pie-chart-container {
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
+
+.custom-legend {
+  list-style: none;
+  padding: 0 0 0 24px; /* Padding on the left */
+  margin: 0;
+  max-height: 280px; /* Allow scrolling for long lists */
+  overflow-y: auto;
+  flex: 1;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+  cursor: pointer;
+  transition: transform 0.2s ease-in-out;
+}
+
+.legend-item:hover {
+  transform: scale(1.05);
+}
+
+.legend-color-box {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  margin-right: 10px;
+}
+
+.legend-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.legend-label {
+  font-size: 0.9rem;
+  color: #333;
+  font-weight: 500;
+}
+
+.legend-value {
+  font-size: 0.8rem;
+  color: #666;
 }
