@@ -41,7 +41,6 @@ app.http('uploadAndProcessInvoice', {
             const pdfData = await pdfParse(fileBuffer);
             const pdfText = pdfData.text;
 
-            // --- STEP 1: Fetch the user's personalized category list ONCE ---
             const workspaceDocRef = db.collection('workspaces').doc(workspaceId);
             const workspaceDoc = await workspaceDocRef.get();
             if (!workspaceDoc.exists) {
@@ -49,7 +48,6 @@ app.http('uploadAndProcessInvoice', {
             }
             const userCategoryNames = (workspaceDoc.data().categories || []).map(cat => cat.name);
 
-            // --- STEP 2: Extract structured data from the invoice text ---
             const openAIClient = new OpenAI({
                 apiKey: process.env.AZURE_OPENAI_KEY,
                 baseURL: `${process.env.AZURE_OPENAI_ENDPOINT}openai/deployments/${process.env.AZURE_OPENAI_DEPLOYMENT_NAME}`,
@@ -57,20 +55,55 @@ app.http('uploadAndProcessInvoice', {
                 defaultHeaders: { "api-key": process.env.AZURE_OPENAI_KEY },
             });
 
-            const extractionPrompt = `You are an intelligent invoice parser. From the provided invoice text, extract the key fields. Respond ONLY with a single, minified, valid JSON object. Use null for missing values. Dates must be in YYYY-MM-DD format. Numerical values must be numbers only. Required keys: "invoiceId", "vendorName", "customerName", "invoiceDate", "dueDate", "subTotal", "totalTax", "invoiceTotal", "lineItems" (array of objects with 'description', 'quantity', and 'amount'), "mainProduct" (the most important product/service name), and "mainProductPrice" (the price of that specific product).\n\nInvoice Text: """${pdfText}"""`;
+            // The definitive, all-in-one prompt for extraction and categorization
+            const masterPrompt = `
+You are an expert invoice processing AI. From the provided invoice text, perform two tasks:
+
+TASK 1: Extract the following fields and return them in a valid JSON object. For numbers, provide only the number (e.g., 169.00, not "₹169.00"). If a value is not found, use null.
+- "invoiceId"
+- "vendorName"
+- "invoiceDate" (in YYYY-MM-DD format)
+- "dueDate" (in YYYY-MM-DD format)
+- "invoiceTotal" (the final, grand total amount)
+- "subTotal" (the total before taxes and fees)
+- "totalTax" (the total amount of tax)
+- "lineItems" (an array of all objects, each with 'description' and 'amount')
+
+TASK 2: Based on the vendor and line items you just identified, choose the single best category for this entire invoice from the list provided below. Add this category to your JSON response with the key "category".
+
+Personalized Category List:
+[${userCategoryNames.join(', ')}]
+
+Respond ONLY with a single, minified, valid JSON object containing all extracted fields from TASK 1 and your chosen category from TASK 2.
+
+Invoice Text: """${pdfText}"""
+`;
+            
             const gptResponse = await openAIClient.chat.completions.create({
                 model: "gpt-4.1",
-                messages: [{ role: "user", content: extractionPrompt }],
+                messages: [{ role: "user", content: masterPrompt }],
                 response_format: { type: "json_object" },
                 temperature: 0.1
             });
-            const parsedData = JSON.parse(gptResponse.choices[0].message.content);
-            const { vendorName, invoiceId, invoiceDate, invoiceTotal, mainProduct } = parsedData;
 
-            // --- STEP 3: Perform a robust, workspace-aware duplicate check ---
+            const aiResponse = gptResponse.choices[0].message.content;
+            if (!aiResponse) {
+                throw new Error("AI processing failed to return a response.");
+            }
+
+            const parsedData = JSON.parse(aiResponse);
+            const { vendorName, invoiceId, invoiceDate, invoiceTotal, lineItems, category } = parsedData;
+
+            // Validate the category returned by the AI
+            let assignedCategory = category;
+            if (!userCategoryNames.includes(assignedCategory)) {
+                assignedCategory = "Uncategorized";
+            }
+            
             const cosmosClient = new CosmosClient(process.env.AZURE_COSMOS_CONNECTION_STRING);
             const container = cosmosClient.database("InvoiceDB").container("Invoices");
 
+            // Perform duplicate check on the clean, AI-extracted data
             if (invoiceId) {
                 const { resources: existingById } = await container.items.query({
                     query: "SELECT c.id FROM c WHERE c.workspaceId=@workspaceId AND c.invoiceId=@invoiceId AND c.docType='invoice'",
@@ -79,7 +112,7 @@ app.http('uploadAndProcessInvoice', {
                 if (existingById.length > 0) {
                     return { status: 409, headers: corsHeaders, jsonBody: { error: `Duplicate: An invoice with ID '${invoiceId}' already exists.` } };
                 }
-            } else {
+            } else if (vendorName && invoiceDate && invoiceTotal) {
                 const fingerprint = `${vendorName}-${invoiceDate}-${invoiceTotal}`;
                 const { resources: existingByFingerprint } = await container.items.query({
                     query: "SELECT c.id FROM c WHERE c.workspaceId=@workspaceId AND c.fingerprint=@fingerprint AND c.docType='invoice'",
@@ -89,20 +122,7 @@ app.http('uploadAndProcessInvoice', {
                     return { status: 409, headers: corsHeaders, jsonBody: { error: "Duplicate: An invoice from this vendor with the same date and total already exists." } };
                 }
             }
-
-            // --- STEP 4: Get the category using the personalized list ---
-            const categoryPrompt = `Based on vendor "${vendorName}" and product "${mainProduct}", choose the best category from this user's PERSONALIZED list: [${userCategoryNames.join(', ')}]. Respond ONLY with the category name.`;
-            const categoryResp = await openAIClient.chat.completions.create({
-                model: "gpt-4.1",
-                messages: [{ role: "user", content: categoryPrompt }],
-                temperature: 0
-            });
-            let assignedCategory = categoryResp.choices[0].message.content.trim();
-            if (!userCategoryNames.includes(assignedCategory)) {
-                assignedCategory = "Uncategorized";
-            }
             
-            // --- STEP 5: Save to Cloud ---
             const newFileName = `${uuidv4()}.${file.name.split('.').pop()}`;
             const blobServiceClient = BlobServiceClient.fromConnectionString(process.env.AZURE_STORAGE_CONNECTION_STRING);
             await blobServiceClient.getContainerClient("invoice-raw").getBlockBlobClient(newFileName).uploadData(fileBuffer);
@@ -112,8 +132,8 @@ app.http('uploadAndProcessInvoice', {
                 docType: "invoice",
                 workspaceId,
                 uploadedBy: userId,
-                invoiceId: parsedData.invoiceId || null,
-                fingerprint: !parsedData.invoiceId ? `${vendorName}-${invoiceDate}-${invoiceTotal}` : null,
+                invoiceId: invoiceId || null,
+                fingerprint: !invoiceId ? `${vendorName}-${invoiceDate}-${invoiceTotal}` : null,
                 fileName: newFileName,
                 status: "pending",
                 category: assignedCategory,
@@ -122,13 +142,11 @@ app.http('uploadAndProcessInvoice', {
                 invoiceDate: parsedData.invoiceDate ? new Date(parsedData.invoiceDate) : new Date(),
                 dueDate: parsedData.dueDate ? new Date(parsedData.dueDate) : new Date(new Date().setDate(new Date().getDate()+30)),
                 invoiceTotal: typeof parsedData.invoiceTotal === 'number' ? parsedData.invoiceTotal : 0,
-                subTotal: parsedData.subTotal,
-                totalTax: parsedData.totalTax,
-                mainProduct: mainProduct || "N/A",
-                mainProductPrice: parsedData.mainProductPrice || null,
-                lineItems: parsedData.lineItems || [],
+                subTotal: typeof parsedData.subTotal === 'number' ? parsedData.subTotal : null,
+                totalTax: typeof parsedData.totalTax === 'number' ? parsedData.totalTax : null,
+                lineItems: lineItems || [],
                 uploadedAt: new Date(),
-                currency: 'INR'
+                currency: 'INR' // Assuming INR, but could be added to the prompt
             };
 
             const { resource: createdItem } = await container.items.create(newItem);

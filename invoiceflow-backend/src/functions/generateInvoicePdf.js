@@ -1,12 +1,17 @@
 const { app } = require('@azure/functions');
-const { PDFDocument, rgb } = require('pdf-lib');
+const puppeteer = require('puppeteer');
 const { validateFirebaseToken } = require('../helpers/firebase-auth');
 const { container } = require('../helpers/cosmosClient');
 const fs = require('fs');
 const path = require('path');
-const fontkit = require('fontkit');
 
-// --- (All helper functions like formatCurrency, drawTableRow, etc., are correct and remain the same) ---
+const formatCurrency = (amount, currency = 'INR') => {
+    try {
+        return new Intl.NumberFormat('en-IN', { style: 'currency', currency }).format(amount || 0);
+    } catch {
+        return `${(amount || 0).toFixed(2)}`;
+    }
+};
 
 app.http('generateInvoicePdf', {
     methods: ['GET', 'OPTIONS'],
@@ -25,66 +30,76 @@ app.http('generateInvoicePdf', {
 
         try {
             const decodedToken = await validateFirebaseToken(request);
-            if (!decodedToken) { return { status: 401, headers: corsHeaders, jsonBody: { error: "Unauthorized" } }; }
+            if (!decodedToken) {
+                return { status: 401, headers: corsHeaders, jsonBody: { error: "Unauthorized" } };
+            }
 
             const workspaceId = request.headers.get('x-workspace-id');
             const invoiceId = request.query.get('id');
+            const action = request.query.get('action') || 'view';
 
             if (!workspaceId || !invoiceId) {
                 return { status: 400, headers: corsHeaders, jsonBody: { error: "Missing workspace or invoice ID." } };
             }
 
-            // Fetch the invoice using workspaceId as the partition key
             const { resource: invoice } = await container.item(invoiceId, workspaceId).read();
-            
             if (!invoice) {
                 return { status: 404, headers: corsHeaders, jsonBody: { error: "Invoice data not found." } };
             }
 
-            const pdfDoc = await PDFDocument.create();
-            pdfDoc.registerFontkit(fontkit);
-            
-            // Load fonts
-            const fontBytes = fs.readFileSync(path.resolve(__dirname, '../../assets/NotoSans-Regular.ttf'));
-            const fontBoldBytes = fs.readFileSync(path.resolve(__dirname, '../../assets/NotoSans-Bold.ttf'));
-            const customFont = await pdfDoc.embedFont(fontBytes);
-            const customFontBold = await pdfDoc.embedFont(fontBoldBytes);
-            
-            // --- NEW: Load and embed the logo image ---
-            const logoBytes = fs.readFileSync(path.resolve(__dirname, '../../assets/logo.png'));
-            const logoImage = await pdfDoc.embedPng(logoBytes);
-            const logoDims = logoImage.scale(0.15); // Scale the logo to 15% of its original size
-            // ---
+            const templatePath = path.resolve(__dirname, '../assets/invoice-template.html');
+            let htmlTemplate = fs.readFileSync(templatePath, 'utf-8');
+            const logoPath = path.resolve(__dirname, '../assets/logo.png');
+            const logoBase64 = fs.readFileSync(logoPath, 'base64');
+            const logoDataUri = `data:image/png;base64,${logoBase64}`;
 
-            const page = pdfDoc.addPage();
-            const { width, height } = page.getSize();
-            const margin = 50;
-            let y = height - margin;
-
-            // --- NEW: Draw the logo in the header ---
-            page.drawImage(logoImage, {
-                x: margin,
-                y: y - logoDims.height + 15,
-                width: logoDims.width,
-                height: logoDims.height,
+            let lineItemsHtml = '';
+            (invoice.lineItems || []).forEach(item => {
+                lineItemsHtml += `
+                    <tr>
+                        <td>${item.description || 'N/A'}</td>
+                        <td style="text-align: center;">${item.quantity || 1}</td>
+                        <td style="text-align: right;">${formatCurrency(item.amount, invoice.currency)}</td>
+                    </tr>
+                `;
             });
-            // Adjust the title position to be next to the logo
-            page.drawText('InvoiceFlow', { x: margin + logoDims.width + 10, y, font: customFontBold, size: 28, /* ... */ });
-            // ---
+
+            htmlTemplate = htmlTemplate
+                .replace(new RegExp('{{INVOICE_ID}}', 'g'), invoice.invoiceId || 'N/A')
+                .replace(new RegExp('{{CUSTOMER_NAME}}', 'g'), invoice.customerName || 'N/A')
+                .replace(new RegExp('{{VENDOR_NAME}}', 'g'), invoice.vendorName || 'N/A')
+                .replace(new RegExp('{{LOGO_DATA_URI}}', 'g'), logoDataUri)
+                .replace(new RegExp('{{INVOICE_DATE}}', 'g'), new Date(invoice.invoiceDate).toLocaleDateString())
+                .replace(new RegExp('{{LINE_ITEMS_HTML}}', 'g'), lineItemsHtml)
+                .replace(new RegExp('{{CATEGORY}}', 'g'), invoice.category || 'Uncategorized')
+                .replace(new RegExp('{{CURRENCY}}', 'g'), invoice.currency || 'INR')
+                .replace(new RegExp('{{SUBTOTAL}}', 'g'), formatCurrency(invoice.subTotal, invoice.currency))
+                .replace(new RegExp('{{TOTAL_TAX}}', 'g'), formatCurrency(invoice.totalTax, invoice.currency))
+                .replace(new RegExp('{{INVOICE_TOTAL}}', 'g'), formatCurrency(invoice.invoiceTotal, invoice.currency));
             
-            // ... (The rest of the PDF generation logic, including the status stamp, layout, and totals, is correct and remains the same)
+            const browser = await puppeteer.launch({ args: ['--no-sandbox'] });
+            const page = await browser.newPage();
+            await page.setContent(htmlTemplate, { waitUntil: 'networkidle0' });
+            const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true });
+            await browser.close();
 
-            const pdfBytes = await pdfDoc.save();
-
+            const disposition = action === 'download'
+                ? `attachment; filename="Invoice-${invoice.vendorName}.pdf"`
+                : `inline; filename="Invoice-${invoice.id}.pdf"`;
+            
             return {
                 status: 200,
-                headers: { ...corsHeaders, 'Content-Type': 'application/pdf' },
-                body: Buffer.from(pdfBytes)
+                headers: { ...corsHeaders, 'Content-Type': 'application/pdf', 'Content-Disposition': disposition },
+                body: pdfBuffer
             };
 
         } catch (error) {
-            context.error("Error generating PDF:", error);
-            return { status: 500, headers: corsHeaders, jsonBody: { error: "Could not generate PDF." } };
+            context.error("Error in generateInvoicePdf function:", error);
+            return {
+                status: 500,
+                headers: corsHeaders,
+                jsonBody: { error: "An unexpected error occurred while generating the PDF." }
+            };
         }
     }
 });

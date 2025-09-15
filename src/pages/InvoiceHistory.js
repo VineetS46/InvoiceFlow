@@ -1,16 +1,38 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import api from '../helpers/api'; // Import our new API helper
+import api from '../helpers/api';
 import './InvoiceHistory.css';
 import {
-    Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
-    CircularProgress, Typography, IconButton, Menu, MenuItem, Grid, TextField,
-    FormControl, InputLabel, Select, Tooltip, Button
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TableRow,
+    Paper,
+    CircularProgress,
+    Typography,
+    IconButton,
+    Menu,
+    MenuItem,
+    Grid,
+    TextField,
+    FormControl,
+    InputLabel,
+    Select,
+    Tooltip,
+    Button
 } from '@material-ui/core';
-import { MoreVert, Visibility, GetApp, Edit, Search, Clear } from '@material-ui/icons';
+import {
+    MoreVert,
+    Visibility,
+    GetApp,
+    Edit,
+    Search,
+    Clear
+} from '@material-ui/icons';
 
 const InvoiceHistory = () => {
-    // Get the full auth context, including the currentWorkspace
     const auth = useAuth();
     const { currentUser, currentWorkspace, loading: authLoading } = auth;
 
@@ -21,13 +43,14 @@ const InvoiceHistory = () => {
     const [actionsMenuAnchor, setActionsMenuAnchor] = useState(null);
     const [categoryMenuAnchor, setCategoryMenuAnchor] = useState(null);
     const [selectedInvoice, setSelectedInvoice] = useState(null);
+    const [loadingAction, setLoadingAction] = useState(null);
 
     const [searchTerm, setSearchTerm] = useState('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('');
 
-       useEffect(() => {
+    useEffect(() => {
         const fetchInvoices = async () => {
             if (!currentUser || !currentWorkspace) {
                 setIsLoadingData(false);
@@ -36,8 +59,8 @@ const InvoiceHistory = () => {
             setIsLoadingData(true);
             setError('');
             try {
-                // UPDATED: Use the clean api.get method
                 const data = await api.get('getInvoices', auth);
+                if (data.error) throw new Error(data.error);
                 setInvoices(Array.isArray(data) ? data : []);
             } catch (err) {
                 setError(err.message);
@@ -47,7 +70,9 @@ const InvoiceHistory = () => {
             }
         };
 
-        if (!authLoading) fetchInvoices();
+        if (!authLoading) {
+            fetchInvoices();
+        }
     }, [auth, authLoading, currentUser, currentWorkspace]);
 
     const userCategories = useMemo(() => {
@@ -59,7 +84,7 @@ const InvoiceHistory = () => {
             const lowerCaseSearchTerm = searchTerm.toLowerCase();
             const matchesSearchTerm = lowerCaseSearchTerm === '' ||
                 (invoice.vendorName || '').toLowerCase().includes(lowerCaseSearchTerm) ||
-                (invoice.lineItems || []).some(item => 
+                (invoice.lineItems || []).some(item =>
                     item.description?.toLowerCase().includes(lowerCaseSearchTerm)
                 );
             const invoiceDate = new Date(invoice.invoiceDate);
@@ -79,18 +104,17 @@ const InvoiceHistory = () => {
 
     const handleUpdateInvoice = async (invoiceToUpdate, dataToUpdate) => {
         try {
-            // UPDATED: Use the clean api.post method
             const endpoint = `editinvoice?id=${invoiceToUpdate.id}`;
             const updatedInvoice = await api.post(endpoint, dataToUpdate, auth);
+            if (updatedInvoice.error) throw new Error(updatedInvoice.error);
 
-            setInvoices(prevInvoices => 
+            setInvoices(prevInvoices =>
                 prevInvoices.map(inv => (inv.id === updatedInvoice.id ? updatedInvoice : inv))
             );
         } catch (err) {
             alert(`Error: ${err.message}`);
         }
     };
-
 
     const handleMenuOpen = (event, invoice, menuType) => {
         setSelectedInvoice(invoice);
@@ -113,7 +137,7 @@ const InvoiceHistory = () => {
         }
         handleMenuClose();
     };
-    
+
     const handleEditVendor = () => {
         if (!selectedInvoice) return;
         const newVendorName = prompt("Enter the new vendor name:", selectedInvoice.vendorName);
@@ -129,38 +153,45 @@ const InvoiceHistory = () => {
     };
 
     const handleFileAction = async (action) => {
-        if (!selectedInvoice) return;
+        const invoiceToAction = selectedInvoice;
+        handleMenuClose();
+        if (!invoiceToAction) return;
+
+        setLoadingAction(invoiceToAction.id);
         try {
-            let url, response, data;
-            if (action === 'view') {
-                // api.get() is for JSON, for a file blob we still need a direct fetch
-                url = `http://localhost:7071/api/generateInvoicePdf?id=${selectedInvoice.id}`;
-                const token = await currentUser.getIdToken();
-                response = await fetch(url, { 
-                    headers: { 'Authorization': `Bearer ${token}`, 'x-workspace-id': currentWorkspace.id } 
-                });
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error || 'Could not generate PDF.');
+            const token = await currentUser.getIdToken();
+            const url = `http://localhost:7071/api/generateInvoicePdf?id=${invoiceToAction.id}&action=${action}`;
+
+            const response = await fetch(url, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'x-workspace-id': currentWorkspace.id
                 }
-                const blob = await response.blob();
-                const fileURL = URL.createObjectURL(blob);
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || `Could not ${action} PDF.`);
+            }
+
+            const blob = await response.blob();
+            const fileURL = URL.createObjectURL(blob);
+
+            if (action === 'view') {
                 window.open(fileURL, '_blank');
             } else if (action === 'download') {
-                // Use api.get for the URL, which is a JSON response
-                url = `getDownloadUrl?id=${selectedInvoice.id}`;
-                data = await api.get(url, auth);
                 const link = document.createElement('a');
-                link.href = data.downloadUrl;
-                link.download = selectedInvoice.fileName || `invoice-${selectedInvoice.id}.pdf`;
+                link.href = fileURL;
+                link.download = `InvoiceFlow-${invoiceToAction.vendorName}-${invoiceToAction.id.substring(0, 8)}.pdf`;
                 document.body.appendChild(link);
                 link.click();
-                link.remove();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(fileURL);
             }
         } catch (err) {
             alert(`Error: ${err.message}`);
         } finally {
-            handleMenuClose();
+            setLoadingAction(null);
         }
     };
 
@@ -222,7 +253,11 @@ const InvoiceHistory = () => {
                                         <TableCell align="right">{formatCurrency(invoice.invoiceTotal, invoice.currency)}</TableCell>
                                         <TableCell align="center"><span className={`status-badge ${invoice.status}`}>{invoice.status}</span></TableCell>
                                         <TableCell align="center">
-                                            <IconButton size="small" onClick={(e) => handleMenuOpen(e, invoice, 'actions')}><MoreVert /></IconButton>
+                                            {loadingAction === invoice.id ? (
+                                                <CircularProgress size={24} />
+                                            ) : (
+                                                <IconButton size="small" onClick={(e) => handleMenuOpen(e, invoice, 'actions')}><MoreVert /></IconButton>
+                                            )}
                                         </TableCell>
                                     </TableRow>
                                 ))
@@ -237,9 +272,15 @@ const InvoiceHistory = () => {
             </Paper>
 
             <Menu anchorEl={actionsMenuAnchor} open={Boolean(actionsMenuAnchor)} onClose={handleMenuClose}>
-                <MenuItem onClick={() => handleFileAction('view')}><Visibility fontSize="small" style={{ marginRight: 8 }} /> View Processed</MenuItem>
-                <MenuItem onClick={() => handleFileAction('download')}><GetApp fontSize="small" style={{ marginRight: 8 }} /> Download Original</MenuItem>
-                <MenuItem onClick={handleEditVendor}><Edit fontSize="small" style={{ marginRight: 8 }} /> Edit Vendor</MenuItem>
+                <MenuItem onClick={() => handleFileAction('view')}>
+                    <Visibility fontSize="small" style={{ marginRight: 8 }} /> View Summary
+                </MenuItem>
+                <MenuItem onClick={() => handleFileAction('download')}>
+                    <GetApp fontSize="small" style={{ marginRight: 8 }} /> Download Summary
+                </MenuItem>
+                <MenuItem onClick={handleEditVendor}>
+                    <Edit fontSize="small" style={{ marginRight: 8 }} /> Edit
+                </MenuItem>
             </Menu>
 
             <Menu anchorEl={categoryMenuAnchor} open={Boolean(categoryMenuAnchor)} onClose={handleMenuClose}>
