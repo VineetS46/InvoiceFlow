@@ -1,3 +1,4 @@
+// src/components/Layout/Layout.js
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
@@ -7,7 +8,7 @@ import {
   IconButton, 
   Tooltip,
   Typography,
-  Divider
+  Divider // Divider is already imported, which is great
 } from '@material-ui/core';
 import {
   Dashboard as DashboardIcon,
@@ -23,13 +24,10 @@ import Logo from '../../assets/icon/logo.svg';
 
 const Layout = ({ children }) => {
   
-  // --- THIS IS THE FIX ---
-  // We need to get currentWorkspace and userProfile from the useAuth hook
-  const { currentUser, logout, isAdmin, userRole, currentWorkspace, userProfile } = useAuth();
-  // --- END OF FIX ---
-
+  const { currentUser, logout, isAdmin, userRole } = useAuth();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+
 
   const navItems = [
     { path: '/', label: 'Dashboard', icon: <DashboardIcon htmlColor="#5d46ff" /> },
@@ -37,18 +35,7 @@ const Layout = ({ children }) => {
     { path: '/invoice-history', label: 'Invoice History', icon: <InvoiceIcon htmlColor="#5d46ff" /> },
     { path: '/profile', label: 'Profile', icon: <ProfileIcon htmlColor="#5d46ff" /> },
   ];
-
-  // This logic is now correct because the variables are defined
-  const workspaceId = currentWorkspace?.id;
-  const userRoleInWorkspace = userProfile?.workspaces?.[workspaceId];
-
-  if (userRoleInWorkspace === 'owner') {
-    navItems.push({
-      path: '/team',
-      label: 'Team Management',
-      icon: <TeamIcon htmlColor="#5d46ff" />
-    });
-  }
+  
 
   if (isAdmin) {
     navItems.push({
@@ -57,18 +44,8 @@ const Layout = ({ children }) => {
       icon: <AdminIcon htmlColor="#5d46ff" />
     });
   }
-
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
-  };
-  
-  const handleLogout = async () => {
-    try {
-      await logout();
-      // history.push('/login') is handled by the PrivateRoute component now
-    } catch (error) {
-      console.error("Failed to log out", error);
-    }
   };
   
   return (
@@ -98,6 +75,7 @@ const Layout = ({ children }) => {
             </div>
           </div>
           
+          {/* --- THIS IS THE NEW LINE --- */}
           <Divider className="sidebar-divider" />
 
           <nav className="sidebar-nav">
@@ -113,6 +91,7 @@ const Layout = ({ children }) => {
                   </Link>
                 </li>
               ))}
+              
             </ul>
           </nav>
 
@@ -127,16 +106,17 @@ const Layout = ({ children }) => {
               </Avatar>
               <div className="user-details">
                 <Typography className="user-name">
-                  {currentUser?.displayName || 'User'}
-                  {userRole && <span className={`role-badge ${userRole}`}>{userRoleInWorkspace || userRole}</span>}
-                </Typography>
+  {currentUser?.displayName || 'User'}
+  {/* This is the new role badge */}
+  {userRole && <span className={`role-badge ${userRole}`}>{userRole}</span>}
+</Typography>
                 <Typography className="user-email">
                   {currentUser?.email}
                 </Typography>
               </div>
               <Tooltip title="Logout">
                 <IconButton 
-                  onClick={handleLogout} 
+                  onClick={logout} 
                   className="logout-btn"
                 >
                   <LogoutIcon fontSize="small" htmlColor="#5d46ff" />

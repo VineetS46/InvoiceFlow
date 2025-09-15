@@ -1,19 +1,17 @@
 import React, { useState } from 'react';
 import { useHistory } from 'react-router-dom';
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button as MuiButton } from '@material-ui/core';
-
+import { useAuth } from '../../hooks/useAuth';
 import './Login.css';
-
+import { setPersistence, browserSessionPersistence, browserLocalPersistence } from 'firebase/auth';
 import { auth, db } from '../../firebaseConfig';
-import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, setPersistence, browserSessionPersistence, browserLocalPersistence } from 'firebase/auth';
 import { collection, query, where, getDocs } from "firebase/firestore";
-
 import HeroLoginImg from '../../assets/img/hero-login.png';
 import HeroRegisterImg from '../../assets/img/hero-register.png';
 import GoogleLogo from '../../assets/icon/google-icon-logo-svgrepo-com.svg';
 
 const Login = () => {
   const history = useHistory();
+  const { login, loginWithGoogle, signup } = useAuth();
 
   const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [username, setUsername] = useState('');
@@ -22,9 +20,7 @@ const Login = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [loginInput, setLoginInput] = useState('');
-  // We no longer need the showSuccess dialog, as the user will be redirected.
-
-  // --- THIS FUNCTION IS UNCHANGED ---
+  
   const handleSignIn = async () => {
     try {
       const persistence = rememberMe ? browserLocalPersistence : browserSessionPersistence;
@@ -40,14 +36,13 @@ const Login = () => {
         }
         userEmail = querySnapshot.docs[0].data().email;
       }
-      await signInWithEmailAndPassword(auth, userEmail, password);
-      history.push('/');
+      await login(userEmail, password);
+      // The onAuthStateChanged listener in useAuth will handle redirects
     } catch (err) {
       alert(`Login failed: ${err.message}`);
     }
   };
 
-  // --- THIS IS THE UPDATED REGISTRATION HANDLER ---
   const handleRegister = async () => {
     if (!username || !email || !password || !confirmPassword) {
       alert("Please fill in all fields.");
@@ -58,43 +53,32 @@ const Login = () => {
       return;
     }
     try {
-      // First, check if the username is already taken before proceeding
       const usersRef = collection(db, "users");
       const q = query(usersRef, where("username", "==", username.toLowerCase()));
       const querySnapshot = await getDocs(q);
       if (!querySnapshot.empty) {
-        alert("This username is already taken. Please choose another.");
+        alert("This username is already taken.");
         return;
       }
-
-      // If username is available, redirect to the onboarding screen
-      // We pass the user's details in the route's state.
-      history.push({
-          pathname: '/onboarding',
-          state: { 
-              email: email, 
-              password: password, 
-              username: username 
-          }
-      });
-
+      await signup(email, password, username);
+      // The onAuthStateChanged hook now handles the redirect to onboarding
     } catch (err) {
-      alert(`An error occurred: ${err.message}`);
+      alert(`Registration failed: ${err.message}`);
     }
   };
 
-  // --- THIS FUNCTION IS UNCHANGED ---
+  // --- THIS IS THE FIX ---
+  // The handleGoogleSignIn function is now restored.
   const handleGoogleSignIn = async () => {
     try {
-      const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
-      // NOTE: Our useAuth hook will automatically handle creating a default workspace
-      // for new Google sign-in users, so we can just redirect to the dashboard.
-      history.push('/');
+      await loginWithGoogle();
+      // The onAuthStateChanged listener will handle creating a default workspace
+      // for a new Google user, and will then redirect to the dashboard.
     } catch (err) {
       alert(`Google sign-in failed: ${err.message}`);
     }
   };
+  // --- END OF FIX ---
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -104,13 +88,8 @@ const Login = () => {
       handleSignIn();
     }
   };
-
-  // The success dialog is no longer needed
-  // const handleCloseSuccessDialog = () => { ... };
-
+  
   return (
-    // The JSX structure remains the same. Only the logic in handleRegister has changed.
-    // The success dialog at the bottom can be removed.
     <>
       <div className="login-container-new">
         <div className="login-hero-new">
@@ -160,7 +139,6 @@ const Login = () => {
           </div>
         </div>
       </div>
-      {/* The success dialog is no longer needed and can be safely removed */}
     </>
   );
 };

@@ -1,113 +1,77 @@
 .profile-page {
-  padding: 24px;
-  background-color: #f4f6f8;
-  min-height: 100vh;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-}
-
-.page-header {
-  color: #1976d2;
-  margin-bottom: 24px;
-  font-weight: 600;
+    background-color: #f4f6f8;
+    padding: 24px;
 }
 
 .main-panel {
-  padding: 32px;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  background-color: #ffffff;
+    max-width: 1200px;
+    margin: 0 auto;
+    border-radius: 8px !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05) !important;
 }
 
 .panel-header {
-  margin-bottom: 32px;
+    padding: 20px 24px;
+    border-bottom: 1px solid #dfe3e8;
 }
 
 .panel-title {
-  color: #333;
-  font-weight: 600;
-  margin-bottom: 8px;
+    font-weight: 600 !important;
 }
 
-.panel-subtitle {
-  color: #666;
-  line-height: 1.5;
+.sticky-actions {
+    position: sticky;
+    top: 0;
+    background-color: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(8px);
+    padding: 16px 24px;
+    border-bottom: 1px solid #dfe3e8;
+    display: flex;
+    justify-content: flex-end;
+    gap: 16px;
+    z-index: 10;
 }
 
-.action-buttons {
-  display: flex;
-  gap: 16px;
-  margin-bottom: 32px;
+.panel-content {
+    padding: 24px;
 }
 
-.save-button {
-  background-color: #1976d2;
+.section-title {
+    font-weight: 500 !important;
 }
 
-.categories-grid {
-  margin-top: 0;
+.section-subtitle {
+    margin-bottom: 24px !important;
 }
 
 .category-card {
-  padding: 20px;
-  border-radius: 8px;
-  border: 1px solid #e0e0e0;
-  height: fit-content;
+    padding: 16px;
 }
 
-.category-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
+.category-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
 }
 
-.category-name-input {
-  flex: 1;
-  margin-right: 8px;
+.category-name-input .MuiInput-underline:before,
+.category-name-input .MuiInput-underline:after {
+    border-bottom: none !important;
 }
 
-.category-name-input .MuiOutlinedInput-root {
-  font-weight: 500;
-}
-
-.delete-button {
-  color: #f44336;
-}
-
-.delete-button:hover {
-  background-color: rgba(244, 67, 54, 0.04);
+.category-name-input .MuiInputBase-input {
+    font-size: 1.1rem !important;
+    font-weight: 500 !important;
 }
 
 .tags-container {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 16px;
-  min-height: 32px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 16px 0;
 }
 
 .tag-chip {
-  background-color: #e3f2fd;
-  color: #1976d2;
-}
-
-.tag-chip .MuiChip-deleteIcon {
-  color: #1976d2;
-}
-
-.tag-chip .MuiChip-deleteIcon:hover {
-  color: #f44336;
-}
-
-.add-tag-input {
-  margin-top: 8px;
-}
-
-.add-tag-input .MuiOutlinedInput-root {
-  font-size: 14px;
-}
-
-.add-tag-input .MuiInputBase-input::placeholder {
-  color: #999;
-  opacity: 1;
+    background-color: #e3e3e3 !important;
 }

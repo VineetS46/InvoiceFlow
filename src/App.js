@@ -1,4 +1,3 @@
-// src/App.js
 import React from 'react';
 import { BrowserRouter as Router, Switch, Route, Redirect } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
@@ -11,35 +10,51 @@ import Profile from './pages/Profile';
 import Admin from './pages/Admin';
 import AdminRoute from './components/AdminRoute';
 import Onboarding from './pages/Onboarding';
-import Team from './pages/Team'
+import Team from './pages/Team';
 
-// Custom component to protect routes for logged-in users
+// --- THIS IS THE FINAL, ROBUST PrivateRoute using the 'onboardingRequired' flag ---
 const PrivateRoute = ({ children, ...rest }) => {
-  const { currentUser, loading } = useAuth();
+  // Get the new 'onboardingRequired' flag from our auth context
+  const { currentUser, loading, onboardingRequired } = useAuth();
 
   if (loading) {
-    return <div>Loading...</div>; // Or a spinner
+    // Show a global loading indicator while the initial auth check is running.
+    return <div>Loading...</div>;
   }
 
   return (
     <Route
       {...rest}
-      render={({ location }) =>
-        currentUser ? (
-          <Layout>{children}</Layout>
-        ) : (
-          <Redirect to={{ pathname: "/login", state: { from: location } }} />
-        )
-      }
+      render={({ location }) => {
+        if (currentUser) {
+          // User is logged in. Now, check the onboarding flag.
+          if (onboardingRequired) {
+            // If onboarding is required, the ONLY page they can see is /onboarding.
+            // If they are already on that page, we render it.
+            // If they try to go anywhere else, we force them back.
+            return location.pathname === '/onboarding' 
+              ? children 
+              : <Redirect to="/onboarding" />;
+          }
+          // If onboarding is NOT required, they are a normal user. Show the app inside the Layout.
+          return <Layout>{children}</Layout>;
+        }
+        
+        // If there is no user, redirect to the login page.
+        return <Redirect to={{ pathname: "/login", state: { from: location } }} />;
+      }}
     />
   );
 };
+// ---
 
-// Custom component for routes that should only be seen by logged-out users
 const PublicRoute = ({ component: Component, ...rest }) => {
-    const { currentUser } = useAuth();
+    const { currentUser, loading } = useAuth();
+    if (loading) {
+        return <div>Loading...</div>; // Good practice to prevent content flashing
+    }
     return <Route {...rest} render={props => currentUser ? <Redirect to="/" /> : <Component {...props} />} />;
-}
+};
 
 function App() {
   return (
@@ -48,15 +63,20 @@ function App() {
         <Switch>
           <PublicRoute path="/login" component={Login} />
           
+          {/* The Onboarding route now uses PrivateRoute. */}
+          {/* This is secure because the logic inside PrivateRoute will correctly */}
+          {/* render it without the Layout for users who need it. */}
+          <PrivateRoute path="/onboarding">
+            <Onboarding />
+          </PrivateRoute>
+
+          {/* All other routes are now correctly protected */}
           <PrivateRoute exact path="/">
             <Dashboard />
           </PrivateRoute>
-           <PrivateRoute path="/onboarding">
-            <Onboarding />
-          </PrivateRoute>
           <PrivateRoute path="/team">
-              <Team />
-            </PrivateRoute>
+            <Team />
+          </PrivateRoute>
           <PrivateRoute path="/analytics">
             <Analytics />
           </PrivateRoute>
@@ -67,11 +87,10 @@ function App() {
             <Profile />
           </PrivateRoute>
           <AdminRoute path="/admin">
-  <Admin />
-</AdminRoute>
+            <Admin />
+          </AdminRoute>
           
-          {/* If no other route matches, this will catch it */}
-          <Redirect to="/" />
+          <Redirect from="*" to="/" />
         </Switch>
       </Router>
     </AuthProvider>

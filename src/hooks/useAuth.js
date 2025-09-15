@@ -54,130 +54,109 @@ export function AuthProvider({ children }) {
   const [userProfile, setUserProfile] = useState(null);
   const [currentWorkspace, setCurrentWorkspace] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [onboardingRequired, setOnboardingRequired] = useState(false); // The critical state flag
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
+        setCurrentUser(user);
         const userDocRef = doc(db, 'users', user.uid);
         let userDoc = await getDoc(userDocRef);
 
-        if (!userDoc.exists()) {
-          // --- THIS IS THE NEW, CRITICAL INVITATION-HANDLING LOGIC ---
-          // This user is authenticated but has no profile. Check for an invite.
-          console.log(`New user detected: ${user.email}. Checking for pending invitations...`);
-          
-          const invitesRef = collection(db, "invites");
-          const q = query(invitesRef, where("email", "==", user.email.toLowerCase()), where("status", "==", "pending"));
-          const inviteSnapshot = await getDocs(q);
-
-          if (!inviteSnapshot.empty) {
-            // INVITATION FOUND! This is an employee joining a team.
-            const inviteDoc = inviteSnapshot.docs[0];
-            const inviteData = inviteDoc.data();
-            console.log(`Invitation found for workspace: ${inviteData.workspaceName}`);
-            
-            const batch = writeBatch(db);
-            
-            // 1. Create the new user's profile document
-            const newUserProfile = {
-              uid: user.uid,
-              displayName: user.displayName || user.email.split('@')[0],
-              email: user.email,
-              workspaces: {
-                [inviteData.workspaceId]: inviteData.role // Assign workspace and role from invite
-              }
-            };
-            batch.set(userDocRef, newUserProfile);
-            
-            // 2. Update the invitation to mark it as "accepted"
-            const inviteDocRef = doc(db, 'invites', inviteDoc.id);
-            batch.update(inviteDocRef, { status: "accepted", acceptedAt: new Date().toISOString(), acceptedBy: user.uid });
-            
-            await batch.commit();
-            userDoc = await getDoc(userDocRef); // Re-fetch the user doc we just created
-          } else {
-            // NO INVITATION FOUND. This is a new owner creating their own workspace.
-            console.log(`No invitation found. Creating a new default workspace for ${user.email}.`);
-            const newWorkspaceId = `ws_${uuidv4()}`;
-            const batch = writeBatch(db);
-
-            const workspaceDocRef = doc(db, "workspaces", newWorkspaceId);
-            batch.set(workspaceDocRef, {
-              name: `${user.displayName || 'My'}'s Workspace`,
-              ownerId: user.uid,
-              plan: "free",
-              categories: CATEGORY_TEMPLATES['GENERAL_BUSINESS'],
-              createdAt: new Date()
-            });
-
-            const newUserProfile = {
-              uid: user.uid,
-              displayName: user.displayName || user.email.split('@')[0],
-              email: user.email,
-              workspaces: { [newWorkspaceId]: "owner" }
-            };
-            batch.set(userDocRef, newUserProfile);
-            await batch.commit();
-            userDoc = await getDoc(userDocRef); // Re-fetch the user doc
+        if (userDoc.exists()) {
+          // This is a returning user who has completed onboarding.
+          setOnboardingRequired(false);
+          const profile = userDoc.data();
+          setUserProfile(profile);
+          if (profile.workspaces && Object.keys(profile.workspaces).length > 0) {
+            const firstWorkspaceId = Object.keys(profile.workspaces)[0];
+            const workspaceDoc = await getDoc(doc(db, 'workspaces', firstWorkspaceId));
+            if (workspaceDoc.exists()) {
+              setCurrentWorkspace({ id: workspaceDoc.id, ...workspaceDoc.data() });
+            }
           }
+        } else {
+          // This is a brand new user (from email signup or first Google sign-in).
+          // We set the flag to force them to the onboarding page.
+          setOnboardingRequired(true);
         }
-        
-        // This part now runs for ALL users after their profile is guaranteed to exist
-        const profile = userDoc.data();
-        setUserProfile(profile);
-        if (profile.workspaces && Object.keys(profile.workspaces).length > 0) {
-          const firstWorkspaceId = Object.keys(profile.workspaces)[0];
-          const workspaceDoc = await getDoc(doc(db, 'workspaces', firstWorkspaceId));
-          if (workspaceDoc.exists()) {
-            setCurrentWorkspace({ id: workspaceDoc.id, ...workspaceDoc.data() });
-          }
-        }
-        setCurrentUser(user);
       } else {
+        // User logged out, reset everything
         setCurrentUser(null);
         setUserProfile(null);
         setCurrentWorkspace(null);
+        setOnboardingRequired(false);
       }
       setLoading(false);
     });
     return unsubscribe;
   }, []);
 
-  // Signup via Email/Password (still triggers the onboarding flow, which is correct)
-  async function signup(email, password, username, workspaceName, workspaceType) {
+  // Simplified signup: just creates the auth user.
+  // The onAuthStateChanged hook will then trigger the onboarding flow.
+  async function signup(email, password, username) {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    const user = userCredential.user;
-    await updateProfile(user, { displayName: username });
-
-    const newWorkspaceId = `ws_${uuidv4()}`;
-    const categoryTemplate = CATEGORY_TEMPLATES[workspaceType] || CATEGORY_TEMPLATES['GENERAL_BUSINESS'];
-
+    // Set their display name so it can be used on the onboarding screen
+    await updateProfile(userCredential.user, { displayName: username });
+    return userCredential;
+  }
+  
+  // NEW function called ONLY from the Onboarding screen
+  async function completeOnboarding(workspaceName, workspaceType) {
+    if (!currentUser) throw new Error("User not authenticated for onboarding.");
+    
+    // Check for an invitation FIRST.
+    const invitesRef = collection(db, "invites");
+    const q = query(invitesRef, where("email", "==", currentUser.email.toLowerCase()), where("status", "==", "pending"));
+    const inviteSnapshot = await getDocs(q);
+    
     const batch = writeBatch(db);
-    const workspaceDocRef = doc(db, "workspaces", newWorkspaceId);
-    batch.set(workspaceDocRef, {
-      name: workspaceName,
-      ownerId: user.uid,
-      plan: "free",
-      categories: categoryTemplate,
-      createdAt: new Date()
-    });
+    const userDocRef = doc(db, 'users', currentUser.uid);
+    let workspaceId;
+    let userRole;
+    
+    if (!inviteSnapshot.empty) {
+      // Employee workflow: Use the invited workspace
+      const inviteDoc = inviteSnapshot.docs[0];
+      const inviteData = inviteDoc.data();
+      workspaceId = inviteData.workspaceId;
+      userRole = inviteData.role;
+      
+      const inviteDocRef = doc(db, 'invites', inviteDoc.id);
+      batch.update(inviteDocRef, { status: "accepted", acceptedAt: new Date(), acceptedBy: currentUser.uid });
+      
+    } else {
+      // Owner workflow: Create a new workspace
+      workspaceId = `ws_${uuidv4()}`;
+      userRole = "owner";
+      const categoryTemplate = CATEGORY_TEMPLATES[workspaceType] || CATEGORY_TEMPLATES['GENERAL_BUSINESS'];
+      const workspaceDocRef = doc(db, "workspaces", workspaceId);
+      batch.set(workspaceDocRef, {
+        name: workspaceName,
+        ownerId: currentUser.uid,
+        plan: "free",
+        categories: categoryTemplate,
+        createdAt: new Date()
+      });
+    }
 
-    const userDocRef = doc(db, "users", user.uid);
+    // Create the user profile document
     const newUserProfile = {
-      uid: user.uid,
-      displayName: username,
-      email: user.email,
-      workspaces: { [newWorkspaceId]: "owner" }
+      uid: currentUser.uid,
+      displayName: currentUser.displayName,
+      email: currentUser.email,
+      workspaces: { [workspaceId]: userRole }
     };
     batch.set(userDocRef, newUserProfile);
     await batch.commit();
 
-    // The onAuthStateChanged listener will automatically pick up these new documents,
-    // so we don't need to set state manually here.
-    
-    return userCredential;
+    // Onboarding is now complete. Turn off the flag and load the data.
+    const finalWorkspaceDoc = await getDoc(doc(db, 'workspaces', workspaceId));
+    setUserProfile(newUserProfile);
+    setCurrentWorkspace({ id: finalWorkspaceDoc.id, ...finalWorkspaceDoc.data() });
+    setOnboardingRequired(false);
   }
-  
+
   const login = (email, password) => signInWithEmailAndPassword(auth, email, password);
   const loginWithGoogle = () => signInWithPopup(auth, new GoogleAuthProvider());
   const logout = () => signOut(auth);
@@ -187,7 +166,9 @@ export function AuthProvider({ children }) {
     userProfile,
     currentWorkspace,
     loading,
+    onboardingRequired, // The flag our router will use
     signup,
+    completeOnboarding, // The function for the onboarding screen
     login,
     loginWithGoogle,
     logout,

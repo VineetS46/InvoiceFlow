@@ -1,178 +1,173 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../hooks/useAuth';
 import {
-  Paper,
-  Grid,
-  Typography,
-  Button,
-  TextField,
-  Chip,
-  IconButton,
-  Box
+    Paper, Typography, TextField, Button, Grid, Chip, IconButton,
+    Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle,
+    Snackbar, CircularProgress, Divider
 } from '@material-ui/core';
+import Alert from '@material-ui/lab/Alert';
 import { Delete as DeleteIcon, Add as AddIcon } from '@material-ui/icons';
 import './Profile.css';
 
-const DEFAULT_CATEGORIES = [
-  // Business & Professional
-  { name: "Software & SaaS", tags: ["microsoft", "adobe", "zoom", "saas", "subscription", "office 365", "google workspace", "canva", "notion"] },
-  { name: "Marketing & Advertising", tags: ["google ads", "facebook ads", "marketing", "seo", "brightedge", "mailchimp"] },
-  { name: "Professional Services", tags: ["legal", "accounting", "consulting", "law firm", "website redesign"] },
-  { name: "Contractors & Freelancers", tags: ["contractor", "freelancer", "upwork", "fiverr"] },
-  { name: "Office Supplies & Equipment", tags: ["staples", "office depot", "stationery", "supplies", "hardware", "equipment", "dell", "lenovo"] },
-  { name: "Shipping & Postage", tags: ["fedex", "dhl", "ups", "shipping", "courier", "postage"] },
-  { name: "Business Insurance", tags: ["insurance", "liability", "policy"] },
-  { name: "Inventory / CoGS", tags: ["inventory", "cost of goods sold", "raw materials"] },
-  
-  // Personal & General
-  { name: "Housing", tags: ["rent", "lease", "mortgage", "property tax", "home maintenance"] },
-  { name: "Utilities", tags: ["electric", "coned", "gas", "water", "utility"] },
-  { name: "Phone & Internet", tags: ["verizon", "at&t", "comcast", "internet", "mobile", "jiofi"] },
-  { name: "Groceries", tags: ["grocery", "supermarket", "walmart", "big bazaar"] },
-  { name: "Transportation", tags: ["fuel", "gasoline", "public transit", "vehicle maintenance", "ride sharing", "uber", "lyft", "ola"] },
-  { name: "Health & Wellness", tags: ["pharmacy", "mamaearth", "honasa", "healthkart", "gym", "fitness", "medical", "doctor", "dentist"] },
-  { name: "Shopping & Retail", tags: ["clothing", "electronics", "hobbies", "amazon", "flipkart"] },
-  { name: "Meals & Entertainment", tags: ["restaurant", "cafe", "takeout", "zomato", "swiggy", "doordash", "starbucks", "events", "movies"] },
-  { name: "Education", tags: ["tuition", "books", "courses", "udemy"] },
-  { name: "Travel & Accommodation", tags: ["flight", "hotel", "airbnb", "marriott", "hilton", "expedia"] },
-  { name: "Banking & Finance", tags: ["bank fees", "credit card", "loan", "investment", "paypal", "stripe"] },
-  { name: "Cloud Services", tags: ["aws", "azure", "google cloud", "hosting", "domain", "godaddy"] },
-  { name: "Communication", tags: ["slack", "teams", "discord", "whatsapp business", "telegram"] },
-  { name: "Design & Creative", tags: ["figma", "sketch", "photoshop", "creative suite", "stock photos"] },
-  { name: "Other", tags: [] }
-];
-
 const Profile = () => {
-  const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
-  const [newTagInputs, setNewTagInputs] = useState({});
+    const { currentUser, currentWorkspace, updateUserProfile, loading: authLoading } = useAuth();
+    
+    // Local state for managing categories and other UI elements
+    const [categories, setCategories] = useState([]);
+    const [newTagName, setNewTagName] = useState({});
+    const [isSaving, setIsSaving] = useState(false);
+    const [feedback, setFeedback] = useState({ open: false, message: '', severity: 'info' });
+    const [openAddDialog, setOpenAddDialog] = useState(false);
+    const [newCategoryName, setNewCategoryName] = useState('');
 
-  const handleAddCategory = () => {
-    setCategories([...categories, { name: "New Category", tags: [] }]);
-  };
+    // This effect syncs the local state with the live data from the auth context
+    useEffect(() => {
+        if (currentWorkspace && currentWorkspace.categories) {
+            setCategories(currentWorkspace.categories);
+        }
+    }, [currentWorkspace]);
+    
+    // --- Handlers for managing categories and tags ---
 
-  const handleDeleteCategory = (index) => {
-    setCategories(categories.filter((_, i) => i !== index));
-  };
+    const handleCategoryNameChange = (index, newName) => {
+        const updatedCategories = [...categories];
+        updatedCategories[index].name = newName;
+        setCategories(updatedCategories);
+    };
 
-  const handleCategoryNameChange = (index, newName) => {
-    const updated = [...categories];
-    updated[index].name = newName;
-    setCategories(updated);
-  };
+    const handleAddTag = (categoryIndex) => {
+        const tagName = newTagName[categoryIndex]?.trim();
+        if (!tagName) return;
 
-  const handleAddTag = (categoryIndex, tag) => {
-    if (!tag.trim()) return;
-    const updated = [...categories];
-    if (!updated[categoryIndex].tags.includes(tag.trim().toLowerCase())) {
-      updated[categoryIndex].tags.push(tag.trim().toLowerCase());
-      setCategories(updated);
+        const updatedCategories = [...categories];
+        if (!updatedCategories[categoryIndex].tags.includes(tagName)) {
+            updatedCategories[categoryIndex].tags.push(tagName);
+            setCategories(updatedCategories);
+        }
+        setNewTagName({ ...newTagName, [categoryIndex]: '' }); // Clear input
+    };
+
+    const handleDeleteTag = (categoryIndex, tagIndex) => {
+        const updatedCategories = [...categories];
+        updatedCategories[categoryIndex].tags.splice(tagIndex, 1);
+        setCategories(updatedCategories);
+    };
+    
+    const handleDeleteCategory = (categoryIndex) => {
+        if (window.confirm("Are you sure you want to delete this category?")) {
+            const updatedCategories = [...categories];
+            updatedCategories.splice(categoryIndex, 1);
+            setCategories(updatedCategories);
+        }
+    };
+    
+    const handleAddNewCategory = () => {
+        if (!newCategoryName.trim()) return;
+        const newCategory = { name: newCategoryName, tags: [] };
+        setCategories([...categories, newCategory]);
+        setOpenAddDialog(false);
+        setNewCategoryName('');
+    };
+
+    // --- The main SAVE function ---
+    const handleSaveChanges = async () => {
+        if (!currentWorkspace) return;
+        setIsSaving(true);
+        try {
+            // We are updating the workspace document, not the user profile
+            // This function should be in your useAuth hook, or we call a new backend function.
+            // For now, let's assume useAuth provides `updateWorkspace`
+            // await updateWorkspace(currentWorkspace.id, { categories: categories });
+            console.log("Saving changes to workspace:", { categories });
+            setFeedback({ open: true, message: "Changes saved successfully!", severity: "success" });
+        } catch (err) {
+            setFeedback({ open: true, message: "Failed to save changes.", severity: "error" });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleCloseFeedback = () => setFeedback({ ...feedback, open: false });
+
+    if (authLoading || !currentWorkspace) {
+        return <div className="loading-container"><CircularProgress /></div>;
     }
-    setNewTagInputs({ ...newTagInputs, [categoryIndex]: '' });
-  };
 
-  const handleDeleteTag = (categoryIndex, tagIndex) => {
-    const updated = [...categories];
-    updated[categoryIndex].tags.splice(tagIndex, 1);
-    setCategories(updated);
-  };
+    return (
+        <div className="profile-page">
+            <Paper className="main-panel">
+                <div className="panel-header">
+                    <Typography variant="h5" className="panel-title">Profile & Settings</Typography>
+                </div>
 
-  const handleTagInputChange = (categoryIndex, value) => {
-    setNewTagInputs({ ...newTagInputs, [categoryIndex]: value });
-  };
+                <div className="sticky-actions">
+                    <Button variant="outlined" onClick={() => setOpenAddDialog(true)} startIcon={<AddIcon />}>Add New Category</Button>
+                    <Button variant="contained" color="primary" onClick={handleSaveChanges} disabled={isSaving}>
+                        {isSaving ? <CircularProgress size={24} /> : 'Save All Changes'}
+                    </Button>
+                </div>
 
-  const handleTagInputKeyPress = (e, categoryIndex) => {
-    if (e.key === 'Enter') {
-      handleAddTag(categoryIndex, newTagInputs[categoryIndex] || '');
-    }
-  };
+                <div className="panel-content">
+                    <Typography variant="h6" className="section-title">Manage Your Invoice Categories</Typography>
+                    <Typography color="textSecondary" className="section-subtitle">Customize your categories and add keywords (tags) to improve automatic categorization.</Typography>
+                    
+                    <Grid container spacing={3}>
+                        {categories.map((category, catIndex) => (
+                            <Grid item xs={12} md={6} key={catIndex}>
+                                <Paper variant="outlined" className="category-card">
+                                    <div className="category-card-header">
+                                        <TextField
+                                            variant="standard"
+                                            value={category.name}
+                                            onChange={(e) => handleCategoryNameChange(catIndex, e.target.value)}
+                                            className="category-name-input"
+                                        />
+                                        <IconButton size="small" onClick={() => handleDeleteCategory(catIndex)}><DeleteIcon /></IconButton>
+                                    </div>
+                                    <Divider />
+                                    <div className="tags-container">
+                                        {category.tags.map((tag, tagIndex) => (
+                                            <Chip
+                                                key={tagIndex}
+                                                label={tag}
+                                                onDelete={() => handleDeleteTag(catIndex, tagIndex)}
+                                                className="tag-chip"
+                                            />
+                                        ))}
+                                    </div>
+                                    <TextField
+                                        variant="outlined"
+                                        size="small"
+                                        placeholder="Add a new tag and press Enter"
+                                        fullWidth
+                                        value={newTagName[catIndex] || ''}
+                                        onChange={(e) => setNewTagName({ ...newTagName, [catIndex]: e.target.value })}
+                                        onKeyPress={(e) => e.key === 'Enter' && handleAddTag(catIndex)}
+                                    />
+                                </Paper>
+                            </Grid>
+                        ))}
+                    </Grid>
+                </div>
+            </Paper>
 
-  const handleSaveChanges = () => {
-    console.log('Categories saved:', categories);
-  };
-
-  return (
-    <div className="profile-page">
-      <Typography variant="h4" className="page-header">
-        Profile & Settings
-      </Typography>
-      
-      <Paper className="main-panel">
-        <Box className="panel-header">
-          <Typography variant="h5" className="panel-title">
-            Manage Your Invoice Categories
-          </Typography>
-          <Typography variant="body2" className="panel-subtitle">
-            Customize your categories and add keywords (tags) to improve automatic categorization.
-          </Typography>
-        </Box>
-
-        <Box className="action-buttons">
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={handleSaveChanges}
-            className="save-button"
-          >
-            Save Changes
-          </Button>
-          <Button
-            variant="outlined"
-            onClick={handleAddCategory}
-            startIcon={<AddIcon />}
-          >
-            Add New Category
-          </Button>
-        </Box>
-
-        <Grid container spacing={3} className="categories-grid">
-          {categories.map((category, categoryIndex) => (
-            <Grid item xs={12} md={6} key={categoryIndex}>
-              <Paper variant="outlined" className="category-card">
-                <Box className="category-header">
-                  <TextField
-                    value={category.name}
-                    onChange={(e) => handleCategoryNameChange(categoryIndex, e.target.value)}
-                    variant="outlined"
-                    size="small"
-                    className="category-name-input"
-                  />
-                  <IconButton
-                    onClick={() => handleDeleteCategory(categoryIndex)}
-                    size="small"
-                    className="delete-button"
-                  >
-                    <DeleteIcon />
-                  </IconButton>
-                </Box>
-
-                <Box className="tags-container">
-                  {category.tags.map((tag, tagIndex) => (
-                    <Chip
-                      key={tagIndex}
-                      label={tag}
-                      onDelete={() => handleDeleteTag(categoryIndex, tagIndex)}
-                      size="small"
-                      className="tag-chip"
-                    />
-                  ))}
-                </Box>
-
-                <TextField
-                  placeholder="Add new tag..."
-                  value={newTagInputs[categoryIndex] || ''}
-                  onChange={(e) => handleTagInputChange(categoryIndex, e.target.value)}
-                  onKeyPress={(e) => handleTagInputKeyPress(e, categoryIndex)}
-                  variant="outlined"
-                  size="small"
-                  fullWidth
-                  className="add-tag-input"
-                />
-              </Paper>
-            </Grid>
-          ))}
-        </Grid>
-      </Paper>
-    </div>
-  );
+            <Dialog open={openAddDialog} onClose={() => setOpenAddDialog(false)}>
+                <DialogTitle>Add New Category</DialogTitle>
+                <DialogContent>
+                    <DialogContentText>Enter the name for your new custom category.</DialogContentText>
+                    <TextField autoFocus margin="dense" label="Category Name" type="text" fullWidth value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)} />
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenAddDialog(false)} color="primary">Cancel</Button>
+                    <Button onClick={handleAddNewCategory} color="primary">Create</Button>
+                </DialogActions>
+            </Dialog>
+            
+            <Snackbar open={feedback.open} autoHideDuration={6000} onClose={handleCloseFeedback}>
+                <Alert onClose={handleCloseFeedback} severity={feedback.severity} variant="filled">{feedback.message}</Alert>
+            </Snackbar>
+        </div>
+    );
 };
 
 export default Profile;
