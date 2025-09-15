@@ -1,5 +1,5 @@
 {
-  "name": "",
+  "name": "invoiceflow-backend",
   "version": "1.0.0",
   "description": "",
   "main": "src/functions/*.js",
@@ -9,10 +9,12 @@
   },
   "dependencies": {
     "@azure/ai-form-recognizer": "^5.1.0",
-    "@azure/cosmos": "^4.5.0",
+    "@azure/cosmos": "^4.5.1",
     "@azure/functions": "^4.0.0",
     "@azure/storage-blob": "^12.28.0",
-    "firebase-admin": "^13.4.0",
+    "firebase-admin": "^13.5.0",
+    "openai": "^5.20.2",
+    "pdf-parse": "^1.1.1",
     "uuid": "^11.1.0"
   },
   "devDependencies": {

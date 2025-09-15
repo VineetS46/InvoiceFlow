@@ -1,23 +1,18 @@
-// src/components/Auth/Login.js
-
 import React, { useState } from 'react';
 import { useHistory } from 'react-router-dom';
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button as MuiButton } from '@material-ui/core';
 
 import './Login.css';
 
-// --- CORRECTED PATHS (up two levels) ---
 import { auth, db } from '../../firebaseConfig';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, updateProfile, setPersistence, browserSessionPersistence, browserLocalPersistence } from 'firebase/auth';
-import { collection, query, where, getDocs, setDoc, doc } from "firebase/firestore";
+import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, setPersistence, browserSessionPersistence, browserLocalPersistence } from 'firebase/auth';
+import { collection, query, where, getDocs } from "firebase/firestore";
 
-// --- CORRECTED PATHS and SVG IMPORT ---
 import HeroLoginImg from '../../assets/img/hero-login.png';
 import HeroRegisterImg from '../../assets/img/hero-register.png';
-import GoogleLogo from '../../assets/icon/google-icon-logo-svgrepo-com.svg'; // Simple image import
+import GoogleLogo from '../../assets/icon/google-icon-logo-svgrepo-com.svg';
 
 const Login = () => {
-  // --- USING useHistory for React Router v5 ---
   const history = useHistory();
 
   const [isRegisterMode, setIsRegisterMode] = useState(false);
@@ -27,8 +22,9 @@ const Login = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [loginInput, setLoginInput] = useState('');
-  const [showSuccess, setShowSuccess] = useState(false);
+  // We no longer need the showSuccess dialog, as the user will be redirected.
 
+  // --- THIS FUNCTION IS UNCHANGED ---
   const handleSignIn = async () => {
     try {
       const persistence = rememberMe ? browserLocalPersistence : browserSessionPersistence;
@@ -45,12 +41,13 @@ const Login = () => {
         userEmail = querySnapshot.docs[0].data().email;
       }
       await signInWithEmailAndPassword(auth, userEmail, password);
-      history.push('/'); // Use history.push for v5
+      history.push('/');
     } catch (err) {
       alert(`Login failed: ${err.message}`);
     }
   };
 
+  // --- THIS IS THE UPDATED REGISTRATION HANDLER ---
   const handleRegister = async () => {
     if (!username || !email || !password || !confirmPassword) {
       alert("Please fill in all fields.");
@@ -61,32 +58,39 @@ const Login = () => {
       return;
     }
     try {
+      // First, check if the username is already taken before proceeding
       const usersRef = collection(db, "users");
       const q = query(usersRef, where("username", "==", username.toLowerCase()));
       const querySnapshot = await getDocs(q);
       if (!querySnapshot.empty) {
-        alert("This username is already taken.");
+        alert("This username is already taken. Please choose another.");
         return;
       }
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
-      await updateProfile(user, { displayName: username });
-      await setDoc(doc(db, "users", user.uid), {
-        uid: user.uid,
-        username: username.toLowerCase(),
-        email: email,
+
+      // If username is available, redirect to the onboarding screen
+      // We pass the user's details in the route's state.
+      history.push({
+          pathname: '/onboarding',
+          state: { 
+              email: email, 
+              password: password, 
+              username: username 
+          }
       });
-      setShowSuccess(true);
+
     } catch (err) {
-      alert(`Registration failed: ${err.message}`);
+      alert(`An error occurred: ${err.message}`);
     }
   };
 
+  // --- THIS FUNCTION IS UNCHANGED ---
   const handleGoogleSignIn = async () => {
     try {
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
-      history.push('/'); // Use history.push for v5
+      // NOTE: Our useAuth hook will automatically handle creating a default workspace
+      // for new Google sign-in users, so we can just redirect to the dashboard.
+      history.push('/');
     } catch (err) {
       alert(`Google sign-in failed: ${err.message}`);
     }
@@ -101,17 +105,12 @@ const Login = () => {
     }
   };
 
-  const handleCloseSuccessDialog = () => {
-    setShowSuccess(false);
-    setIsRegisterMode(false);
-    setLoginInput(email);
-    setUsername('');
-    setEmail('');
-    setPassword('');
-    setConfirmPassword('');
-  };
+  // The success dialog is no longer needed
+  // const handleCloseSuccessDialog = () => { ... };
 
   return (
+    // The JSX structure remains the same. Only the logic in handleRegister has changed.
+    // The success dialog at the bottom can be removed.
     <>
       <div className="login-container-new">
         <div className="login-hero-new">
@@ -124,7 +123,6 @@ const Login = () => {
             <h2>{isRegisterMode ? "Create an Account" : "Welcome Back"}</h2>
             <p className="caption">{isRegisterMode ? "Enter your details to get started." : "Sign in to your account"}</p>
             <button type="button" className="google-btn" onClick={handleGoogleSignIn}>
-              {/* --- CORRECTED: Use standard <img> tag for SVG --- */}
               <img src={GoogleLogo} alt="Google Logo" className="google-icon" />
               Continue with Google
             </button>
@@ -162,13 +160,7 @@ const Login = () => {
           </div>
         </div>
       </div>
-      <Dialog open={showSuccess} onClose={handleCloseSuccessDialog}>
-        <DialogTitle>Registration Successful!</DialogTitle>
-        <DialogContent><p>Your account has been created. Click OK to log in.</p></DialogContent>
-        <DialogActions>
-          <MuiButton onClick={handleCloseSuccessDialog} color="primary" variant="contained">OK</MuiButton>
-        </DialogActions>
-      </Dialog>
+      {/* The success dialog is no longer needed and can be safely removed */}
     </>
   );
 };

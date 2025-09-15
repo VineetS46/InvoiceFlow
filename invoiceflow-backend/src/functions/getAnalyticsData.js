@@ -51,7 +51,7 @@ app.http('getAnalyticsData', {
             const monthlyTotals = {};
             const categoryTotals = {};
 
-            // --- THIS IS THE FIX FOR THE 500 ERROR ---
+            
             // This loop is now robust against missing/malformed data.
             for (const invoice of filteredInvoices) {
                 if (!invoice.invoiceDate || typeof invoice.invoiceTotal !== 'number') {

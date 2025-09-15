@@ -1,9 +1,10 @@
 const { app } = require('@azure/functions');
 const { BlobServiceClient } = require("@azure/storage-blob");
-const { DocumentAnalysisClient, AzureKeyCredential } = require("@azure/ai-form-recognizer");
+const OpenAI = require("openai");
 const { CosmosClient } = require("@azure/cosmos");
 const { v4: uuidv4 } = require("uuid");
 const { validateFirebaseToken } = require('../helpers/firebase-auth');
+const pdfParse = require('pdf-parse');
 
 const allowedOrigin = process.env.ALLOWED_ORIGIN || 'http://localhost:3000';
 const corsHeaders = {
@@ -12,56 +13,16 @@ const corsHeaders = {
     'Access-Control-Allow-Headers': 'Authorization, Content-Type'
 };
 
-// --- NEW: Keyword dictionary for the categorization "Rules Engine" ---
-const categoryKeywords = {
-    'Software & Subscriptions': ['microsoft', 'adobe', 'zoom', 'saas', 'subscription', 'notion', 'canva'],
-    'Hardware & Equipment': ['dell', 'apple', 'lenovo', 'hardware', 'equipment', 'electronics', 'jiofi', 'data card'],
-    'Marketing & Advertising': ['google ads', 'facebook ads', 'marketing', 'seo', 'brightedge', 'mailchimp'],
-    'Utilities': ['electric', 'coned', 'gas', 'water', 'utility'],
-    'Phone & Internet': ['verizon', 'at&t', 'comcast', 'internet', 'mobile'],
-    'Travel & Accommodation': ['uber', 'lyft', 'ola', 'airbnb', 'marriott', 'hilton', 'expedia', 'flight'],
-    'Meals & Entertainment': ['zomato', 'swiggy', 'doordash', 'ubereats', 'restaurant', 'cafe', 'starbucks'],
-    'Professional Services': ['legal', 'accounting', 'consulting', 'law firm'],
-    'Shipping & Postage': ['fedex', 'dhl', 'ups', 'shipping', 'courier', 'postage'],
-    'Office Supplies': ['staples', 'office depot', 'stationery', 'supplies'],
-    'Health & Wellness': ['pharmacy', 'mamaearth', 'honasa', 'healthkart', 'gym', 'fitness', 'conditioner', 'shampoo'],
-    'Platform Fees': ['platform fee', 'handling charges', 'convenience fee', 'marketplace fee'],
-};
-
-// --- NEW: Smart categorization helper function ---
-function getCategory(invoice) {
-    const vendorName = invoice.fields.VendorName?.content?.toLowerCase() || '';
-    const lineItemsText = (invoice.fields.Items?.values || [])
-        .map(item => item.properties.Description?.content?.toLowerCase())
-        .filter(Boolean)
-        .join(' ');
-
-    const textToSearch = `${vendorName} ${lineItemsText}`;
-
-    for (const [category, keywords] of Object.entries(categoryKeywords)) {
-        for (const keyword of keywords) {
-            if (textToSearch.includes(keyword)) {
-                return category;
-            }
-        }
-    }
-    return "Uncategorized"; // Default if no keywords match
-}
-
-function cleanDescription(description) {
-    if (!description) return 'N/A';
-    const stopWords = ['warranty:', 'imei/serial no:', 'hsn/sac:', 'fsn:'];
-    let cleanDesc = description;
-    for (const word of stopWords) {
-        if (cleanDesc.toLowerCase().includes(word)) {
-            cleanDesc = cleanDesc.substring(0, cleanDesc.toLowerCase().indexOf(word));
-        }
-    }
-    return cleanDesc.replace(/\s+/g, ' ').trim();
-}
+const CATEGORIES_LIST = [
+    "Office Supplies", "Software & Subscriptions", "Utilities", "Rent & Lease", 
+    "Marketing & Advertising", "Travel & Accommodation", "Meals & Entertainment", 
+    "Professional Services", "Contractors & Freelancers", "Hardware & Equipment", 
+    "Shipping & Postage", "Insurance", "Phone & Internet", "Employee Benefits", 
+    "Health & Wellness", "Platform Fees", "Other"
+].join(', ');
 
 app.http('uploadAndProcessInvoice', {
-    methods: ['POST', 'OPTIONS'],
+    methods: ['POST','OPTIONS'],
     authLevel: 'anonymous',
     handler: async (request, context) => {
         if (request.method === 'OPTIONS') {
@@ -69,112 +30,122 @@ app.http('uploadAndProcessInvoice', {
         }
 
         const decodedToken = await validateFirebaseToken(request);
-        if (!decodedToken) {
-            return { status: 401, headers: corsHeaders, jsonBody: { error: "Unauthorized." } };
-        }
+        if (!decodedToken) return { status: 401, headers: corsHeaders, jsonBody: { error: "Unauthorized." } };
         const userId = decodedToken.uid;
 
         try {
             const formData = await request.formData();
             const file = formData.get('invoiceFile');
-            if (!file) {
-                return { status: 400, headers: corsHeaders, jsonBody: { error: "No file uploaded." } };
-            }
+            if (!file) return { status: 400, headers: corsHeaders, jsonBody: { error: "No file uploaded." } };
+
             const fileBuffer = Buffer.from(await file.arrayBuffer());
+            const pdfData = await pdfParse(fileBuffer);
+            const pdfText = pdfData.text;
 
-            const aiClient = new DocumentAnalysisClient(process.env.AZURE_DOC_INTEL_ENDPOINT, new AzureKeyCredential(process.env.AZURE_DOC_INTEL_KEY));
-            const poller = await aiClient.beginAnalyzeDocument("prebuilt-invoice", fileBuffer);
-            const { documents } = await poller.pollUntilDone();
+            // Initialize Azure OpenAI client
+            const openAIClient = new OpenAI({
+                apiKey: process.env.AZURE_OPENAI_KEY,
+                baseURL: `${process.env.AZURE_OPENAI_ENDPOINT}openai/deployments/${process.env.AZURE_OPENAI_DEPLOYMENT_NAME}`,
+                defaultQuery: { "api-version": "2024-02-01" },
+                defaultHeaders: { "api-key": process.env.AZURE_OPENAI_KEY },
+            });
 
-            if (!documents || documents.length === 0) {
-                return { status: 400, headers: corsHeaders, jsonBody: { error: "Could not analyze the document." } };
-            }
+            // GPT extraction prompt
+            const extractionPrompt = `
+You are an intelligent invoice parser.
+Extract key fields from the invoice text. Respond ONLY with a valid JSON object.
+Use null for missing values. Dates: YYYY-MM-DD. Numbers: only digits.
+Required keys:
+- invoiceId
+- vendorName
+- customerName
+- invoiceDate
+- dueDate
+- subTotal
+- totalTax
+- invoiceTotal
+- lineItems (array of objects with description, quantity, amount)
+- mainProduct (the most important product or service name)
+- mainProductPrice (the price of that product)
 
-         const cosmosClient = new CosmosClient(process.env.AZURE_COSMOS_CONNECTION_STRING);
-            const container = cosmosClient.database("InvoiceDB").container("Invoices");
-            // --- FIX: Find the main invoice by the highest total value ---
-            let mainInvoice = documents[0];
-            if (documents.length > 1) {
-                mainInvoice = documents.reduce((max, current) => {
-                    const maxTotal = max.fields.InvoiceTotal?.value?.amount || 0;
-                    const currentTotal = current.fields.InvoiceTotal?.value?.amount || 0;
-                    return currentTotal > maxTotal ? current : max;
-                }, documents[0]);
-            }
-            // --- END OF FIX ---
+Invoice Text: """${pdfText}"""
+`;
 
-            const invoice = mainInvoice; // Use the identified main invoice for all subsequent logic
-            
-            const invoiceId = invoice.fields.InvoiceId?.content;
-            const vendorName = invoice.fields.VendorName?.content;
-            const invoiceDate = invoice.fields.InvoiceDate?.value;
-            const invoiceTotal = invoice.fields.InvoiceTotal?.value?.amount;
-            const subTotal = invoice.fields.SubTotal?.value?.amount;
+            const gptResponse = await openAIClient.chat.completions.create({
+                model: "gpt-4.1",
+                messages: [{ role: "user", content: extractionPrompt }],
+                response_format: { type: "json_object" },
+                temperature: 0
+            });
 
-            // ... (Duplicate check logic is correct and remains the same)
+            const aiResponse = gptResponse.choices[0].message.content;
+            if (!aiResponse) throw new Error("AI extraction failed to return a response.");
 
-            let uniqueLineItems = [];
-            if (invoice.fields.Items?.values) {
-                const rawLineItems = invoice.fields.Items.values.map(item => ({
-                    description: cleanDescription(item.properties.Description?.content),
-                    quantity: item.properties.Quantity?.value || 1,
-                    unitPrice: item.properties.UnitPrice?.value?.amount || 0,
-                    amount: item.properties.Amount?.value?.amount || 0,
-                    discount: item.properties.Discount?.value?.amount || 0,
-                }));
-                uniqueLineItems = Array.from(new Map(rawLineItems.map(item =>
-                    [`${item.description}-${item.amount}`, item]
-                )).values());
-            }
-            
-            let calculatedTax = 0;
-            if (typeof subTotal === 'number' && typeof invoiceTotal === 'number' && invoiceTotal > subTotal) {
-                calculatedTax = invoiceTotal - subTotal;
-            } else {
-                calculatedTax = invoice.fields.TotalTax?.value?.amount || 0;
-            }
+            const parsedData = JSON.parse(aiResponse);
+            const {
+                vendorName, customerName, invoiceDate, dueDate,
+                subTotal, totalTax, invoiceTotal, lineItems,
+                mainProduct, mainProductPrice
+            } = parsedData;
 
+            // GPT category prompt
+            const categoryPrompt = `Based on vendor "${vendorName}" and line items "${(lineItems||[]).map(i=>i.description).join(', ')}", choose the best category from: ${CATEGORIES_LIST}. Respond ONLY with the category name.`;
+            const categoryResp = await openAIClient.chat.completions.create({
+                model: "gpt-4.1",
+                messages: [{ role: "user", content: categoryPrompt }],
+                temperature: 0
+            });
+            let assignedCategory = categoryResp.choices[0].message.content.trim();
+            if (!CATEGORIES_LIST.includes(assignedCategory)) assignedCategory = "Uncategorized";
+
+            // Upload PDF to Blob Storage
             const newFileName = `${uuidv4()}.${file.name.split('.').pop()}`;
             const blobServiceClient = BlobServiceClient.fromConnectionString(process.env.AZURE_STORAGE_CONNECTION_STRING);
             await blobServiceClient.getContainerClient("invoice-raw").getBlockBlobClient(newFileName).uploadData(fileBuffer);
-            
-            const invoiceDateObj = new Date(invoiceDate || new Date());
-            let dueDate = invoice.fields.DueDate?.value ? new Date(invoice.fields.DueDate.value) : new Date(new Date(invoiceDateObj).setDate(invoiceDateObj.getDate() + 30));
-            let initialStatus = "pending";
-            if (new Date(invoiceDateObj).getTime() < new Date().setMonth(new Date().getMonth() - 2)) { initialStatus = "paid"; }
 
-            // --- NEW: Automatically determine the category ---
-            const assignedCategory = getCategory(invoice);
+            // Save to Cosmos DB
+            const cosmosClient = new CosmosClient(process.env.AZURE_COSMOS_CONNECTION_STRING);
+            const container = cosmosClient.database("InvoiceDB").container("Invoices");
+
+            const fingerprint = `${vendorName}-${invoiceDate}-${invoiceTotal}`;
+            const { resources: existing } = await container.items.query({
+                query: "SELECT c.id FROM c WHERE c.userId=@userId AND c.fingerprint=@fingerprint AND c.docType='invoice'",
+                parameters: [{ name: "@userId", value: userId }, { name: "@fingerprint", value: fingerprint }]
+            }).fetchAll();
+
+            if (existing.length > 0) {
+                return { status: 409, headers: corsHeaders, jsonBody: { error: "Duplicate invoice detected." } };
+            }
 
             const newItem = {
                 id: uuidv4(),
-                userId: userId,
-                invoiceId: invoiceId || null,
-                fingerprint: invoiceId ? null : `${vendorName}-${invoiceDateObj.toISOString().split('T')[0]}-${invoiceTotal}`,
+                docType: "invoice",
+                userId,
+                invoiceId: parsedData.invoiceId || null,
+                fingerprint,
                 fileName: newFileName,
-                status: initialStatus,
-                category: assignedCategory, // Use the new, smartly assigned category
-                vendorName: vendorName || 'N/A',
-                vendorAddress: invoice.fields.VendorAddress?.content,
-                customerName: invoice.fields.CustomerName?.content || decodedToken.name || 'N/A',
-                customerAddress: invoice.fields.CustomerAddress?.content,
-                invoiceDate: invoiceDateObj,
-                dueDate: dueDate,
+                status: "pending",
+                category: assignedCategory,
+                vendorName: vendorName || "N/A",
+                customerName: customerName || decodedToken.name || "N/A",
+                invoiceDate: invoiceDate ? new Date(invoiceDate) : new Date(),
+                dueDate: dueDate ? new Date(dueDate) : new Date(new Date().setDate(new Date().getDate()+30)),
                 invoiceTotal: invoiceTotal || 0,
-                subTotal: subTotal,
-                totalTax: calculatedTax,
-                currency: invoice.fields.InvoiceTotal?.value?.currencyCode || 'INR',
-                lineItems: uniqueLineItems,
+                subTotal: subTotal || null,
+                totalTax: totalTax || null,
+                mainProduct: mainProduct || "N/A",
+                mainProductPrice: mainProductPrice || null,
+                lineItems: lineItems || [],
                 uploadedAt: new Date(),
-                paymentDate: initialStatus === 'paid' ? invoiceDateObj : null
+                currency: 'INR'
             };
 
             const { resource: createdItem } = await container.items.create(newItem);
             return { status: 201, headers: corsHeaders, jsonBody: createdItem };
 
-        } catch (error) {
-            context.error("Error in uploadAndProcessInvoice:", error);
-            return { status: 500, headers: corsHeaders, jsonBody: { error: "An internal server error occurred." } };
+        } catch (err) {
+            context.error("Error in uploadAndProcessInvoice:", err);
+            return { status: 500, headers: corsHeaders, jsonBody: { error: "Internal server error during processing." } };
         }
     }
 });

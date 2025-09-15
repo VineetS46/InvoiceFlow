@@ -1,80 +1,113 @@
-.profile {
-  max-width: 1200px;
-  margin: 0 auto;
+.profile-page {
+  padding: 24px;
+  background-color: #f4f6f8;
+  min-height: 100vh;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
-.profile-content {
-  background: white;
-  border-radius: 12px;
-  padding: 3rem;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-  border: 1px solid #e2e8f0;
-  text-align: center;
-}
-
-/* Reuse styles from Analytics.css */
 .page-header {
-  margin-bottom: 2rem;
-}
-
-.page-title {
-  font-size: 2rem;
-  font-weight: 700;
-  color: #1a202c;
-  margin: 0 0 0.5rem 0;
-}
-
-.page-subtitle {
-  color: #718096;
-  font-size: 1.1rem;
-  margin: 0;
-}
-
-.coming-soon-icon {
-  font-size: 5rem;
-  margin-bottom: 1.5rem;
-  opacity: 0.7;
-}
-
-.coming-soon h2 {
-  font-size: 1.5rem;
+  color: #1976d2;
+  margin-bottom: 24px;
   font-weight: 600;
-  color: #2d3748;
-  margin: 0 0 1rem 0;
 }
 
-.coming-soon p {
-  color: #718096;
-  font-size: 1.1rem;
-  margin: 0;
-  max-width: 500px;
-  margin-left: auto;
-  margin-right: auto;
+.main-panel {
+  padding: 32px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background-color: #ffffff;
 }
 
-/* Responsive Design */
-@media (max-width: 768px) {
-  .profile {
-    padding: 0 1rem;
-  }
-  
-  .page-title {
-    font-size: 1.5rem;
-  }
-  
-  .profile-content {
-    padding: 2rem 1rem;
-  }
-  
-  .coming-soon-icon {
-    font-size: 4rem;
-  }
-  
-  .coming-soon h2 {
-    font-size: 1.25rem;
-  }
-  
-  .coming-soon p {
-    font-size: 1rem;
-  }
+.panel-header {
+  margin-bottom: 32px;
+}
+
+.panel-title {
+  color: #333;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.panel-subtitle {
+  color: #666;
+  line-height: 1.5;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.save-button {
+  background-color: #1976d2;
+}
+
+.categories-grid {
+  margin-top: 0;
+}
+
+.category-card {
+  padding: 20px;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+  height: fit-content;
+}
+
+.category-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.category-name-input {
+  flex: 1;
+  margin-right: 8px;
+}
+
+.category-name-input .MuiOutlinedInput-root {
+  font-weight: 500;
+}
+
+.delete-button {
+  color: #f44336;
+}
+
+.delete-button:hover {
+  background-color: rgba(244, 67, 54, 0.04);
+}
+
+.tags-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+  min-height: 32px;
+}
+
+.tag-chip {
+  background-color: #e3f2fd;
+  color: #1976d2;
+}
+
+.tag-chip .MuiChip-deleteIcon {
+  color: #1976d2;
+}
+
+.tag-chip .MuiChip-deleteIcon:hover {
+  color: #f44336;
+}
+
+.add-tag-input {
+  margin-top: 8px;
+}
+
+.add-tag-input .MuiOutlinedInput-root {
+  font-size: 14px;
+}
+
+.add-tag-input .MuiInputBase-input::placeholder {
+  color: #999;
+  opacity: 1;
 }

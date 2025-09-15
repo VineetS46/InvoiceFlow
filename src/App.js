@@ -8,9 +8,10 @@ import Dashboard from './components/Dashboard/Dashboard';
 import Analytics from './pages/Analytics';
 import InvoiceHistory from './pages/InvoiceHistory';
 import Profile from './pages/Profile';
-
 import Admin from './pages/Admin';
 import AdminRoute from './components/AdminRoute';
+import Onboarding from './pages/Onboarding';
+import Team from './pages/Team'
 
 // Custom component to protect routes for logged-in users
 const PrivateRoute = ({ children, ...rest }) => {
@@ -50,6 +51,12 @@ function App() {
           <PrivateRoute exact path="/">
             <Dashboard />
           </PrivateRoute>
+           <PrivateRoute path="/onboarding">
+            <Onboarding />
+          </PrivateRoute>
+          <PrivateRoute path="/team">
+              <Team />
+            </PrivateRoute>
           <PrivateRoute path="/analytics">
             <Analytics />
           </PrivateRoute>
