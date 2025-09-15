@@ -1,53 +1,89 @@
-// src/components/Layout/Layout.js
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { Security as AdminIcon } from '@material-ui/icons';
 import { 
   Avatar, 
   IconButton, 
   Tooltip,
   Typography,
-  Divider // Divider is already imported, which is great
+  Divider
 } from '@material-ui/core';
 import {
   Dashboard as DashboardIcon,
   BarChart as AnalyticsIcon,
   Receipt as InvoiceIcon,
   Person as ProfileIcon,
-  Group as TeamIcon,
+  Group as TeamIcon, // For Team Management
+  Security as AdminIcon, // For Admin Panel
   ExitToApp as LogoutIcon,
   Menu as MenuIcon
-} from '@material-ui/icons';
+} from '@material-ui/icons'; // Corrected import path
 import './Layout.css';
 import Logo from '../../assets/icon/logo.svg';
 
 const Layout = ({ children }) => {
+  // Get all necessary context from the useAuth hook
+  const { currentUser, logout, isAdmin, userProfile, currentWorkspace, loading } = useAuth();
   
-  const { currentUser, logout, isAdmin, userRole } = useAuth();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  // Use useMemo to create a stable navigation list that only recalculates when dependencies change.
+  // This is the robust solution to prevent rendering issues.
+  const navItems = useMemo(() => {
+    // Start with the base navigation items that every user sees
+    const baseItems = [
+      { path: '/', label: 'Dashboard', icon: <DashboardIcon htmlColor="#5d46ff" /> },
+      { path: '/analytics', label: 'Analytics', icon: <AnalyticsIcon htmlColor="#5d46ff" /> },
+      { path: '/invoice-history', label: 'Invoice History', icon: <InvoiceIcon htmlColor="#5d46ff" /> },
+      { path: '/profile', label: 'Profile', icon: <ProfileIcon htmlColor="#5d46ff" /> },
+    ];
 
-  const navItems = [
-    { path: '/', label: 'Dashboard', icon: <DashboardIcon htmlColor="#5d46ff" /> },
-    { path: '/analytics', label: 'Analytics', icon: <AnalyticsIcon htmlColor="#5d46ff" /> },
-    { path: '/invoice-history', label: 'Invoice History', icon: <InvoiceIcon htmlColor="#5d46ff" /> },
-    { path: '/profile', label: 'Profile', icon: <ProfileIcon htmlColor="#5d46ff" /> },
-  ];
-  
+    // Determine the user's role in the currently active workspace
+    const workspaceId = currentWorkspace?.id;
+    const userRoleInWorkspace = userProfile?.workspaces?.[workspaceId];
 
-  if (isAdmin) {
-    navItems.push({
-      path: '/admin',
-      label: 'Admin Panel',
-      icon: <AdminIcon htmlColor="#5d46ff" />
-    });
-  }
+    // Conditionally add the "Team Management" link only if the user is an owner
+    if (userRoleInWorkspace === 'owner') {
+      baseItems.push({
+        path: '/team',
+        label: 'Team Management',
+        icon: <TeamIcon htmlColor="#5d46ff" />
+      });
+    }
+
+    // Conditionally add the "Admin Panel" link if the user has the global admin role
+    if (isAdmin) {
+      baseItems.push({
+        path: '/admin',
+        label: 'Admin Panel',
+        icon: <AdminIcon htmlColor="#5d46ff" />
+      });
+    }
+
+    return baseItems;
+  }, [isAdmin, userProfile, currentWorkspace]); // Dependencies that trigger recalculation
+
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
   };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      // Redirects are handled by the PrivateRoute component
+    } catch (error) {
+      console.error("Failed to log out", error);
+    }
+  };
   
+  // Prevent rendering the layout with incomplete data during the initial load
+  if (loading || !currentUser) {
+    return null; // Render nothing until authentication is confirmed
+  }
+  
+  const userRoleInWorkspace = userProfile?.workspaces?.[currentWorkspace?.id];
+
   return (
     <div className="layout-root">
       <header className="mobile-header">
@@ -75,7 +111,6 @@ const Layout = ({ children }) => {
             </div>
           </div>
           
-          {/* --- THIS IS THE NEW LINE --- */}
           <Divider className="sidebar-divider" />
 
           <nav className="sidebar-nav">
@@ -91,7 +126,6 @@ const Layout = ({ children }) => {
                   </Link>
                 </li>
               ))}
-              
             </ul>
           </nav>
 
@@ -106,17 +140,17 @@ const Layout = ({ children }) => {
               </Avatar>
               <div className="user-details">
                 <Typography className="user-name">
-  {currentUser?.displayName || 'User'}
-  {/* This is the new role badge */}
-  {userRole && <span className={`role-badge ${userRole}`}>{userRole}</span>}
-</Typography>
+                  {currentUser?.displayName || 'User'}
+                  {/* Display the user's role in the current workspace */}
+                  {userRoleInWorkspace && <span className={`role-badge ${userRoleInWorkspace}`}>{userRoleInWorkspace}</span>}
+                </Typography>
                 <Typography className="user-email">
                   {currentUser?.email}
                 </Typography>
               </div>
               <Tooltip title="Logout">
                 <IconButton 
-                  onClick={logout} 
+                  onClick={handleLogout} 
                   className="logout-btn"
                 >
                   <LogoutIcon fontSize="small" htmlColor="#5d46ff" />
