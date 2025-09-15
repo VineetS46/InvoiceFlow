@@ -12,28 +12,27 @@ app.http('editInvoice', {
         const corsHeaders = {
             'Access-Control-Allow-Origin': allowedOrigin,
             'Access-Control-Allow-Methods': 'POST, OPTIONS',
-            'Access-Control-Allow-Headers': 'Authorization, Content-Type'
+            'Access-Control-Allow-Headers': 'Authorization, Content-Type, x-workspace-id'
         };
 
         if (request.method === 'OPTIONS') {
             return { status: 200, headers: corsHeaders, body: '' };
         }
 
-        try {
+         try {
             const decodedToken = await validateFirebaseToken(request);
-            if (!decodedToken) {
-                return { status: 401, headers: corsHeaders, jsonBody: { error: "Unauthorized" } };
-            }
+            if (!decodedToken) { return { status: 401, headers: corsHeaders, jsonBody: { error: "Unauthorized" } }; }
             
             const userId = decodedToken.uid;
+            const workspaceId = request.headers.get('x-workspace-id');
             const invoiceId = request.query.get('id');
             const updatedData = await request.json();
             
-            if (!invoiceId || !updatedData) {
-                return { status: 400, headers: corsHeaders, jsonBody: { error: "Bad Request: Missing ID or body." } };
+            if (!workspaceId || !invoiceId || !updatedData) {
+                return { status: 400, headers: corsHeaders, jsonBody: { error: "Bad Request: Missing ID, workspace, or body." } };
             }
 
-            const { resource: existingInvoice } = await container.item(invoiceId, userId).read();
+           const { resource: existingInvoice } = await container.item(invoiceId, workspaceId).read();
 
             if (!existingInvoice) {
                 return { status: 404, headers: corsHeaders, jsonBody: { error: "Invoice not found or you do not have permission." } };
@@ -57,6 +56,7 @@ app.http('editInvoice', {
 
             // Update the main invoice document
             const itemToUpdate = { ...existingInvoice, ...updatedData, id: existingInvoice.id, userId: existingInvoice.userId };
+          itemToUpdate.workspaceId = existingInvoice.workspaceId; 
             const { resource: savedInvoice } = await container.items.upsert(itemToUpdate);
             
             return { status: 200, headers: corsHeaders, jsonBody: savedInvoice };

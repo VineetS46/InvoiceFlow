@@ -1,12 +1,16 @@
 /* --- General Layout & Grids --- */
-.dashboard-header {
-    margin-bottom: 30px;
+/* Fix header text colors */
+.welcome-header h1 {
+  font-size: 28px;
+  font-weight: 600;
+  color: #000 !important; /* Black text for the username + workspace */
+  margin-bottom: 4px;
 }
-.dashboard-header h1 {
-    font-size: 28px;
-    font-weight: 600;
-    color: #2c3e50;
-    margin-bottom: 4px;
+
+.welcome-header p {
+  color: #000 !important;  /* Black text for the summary */
+  font-size: 16px;
+  font-weight: 400;
 }
 .dashboard-header p {
     color: #7f8c8d;

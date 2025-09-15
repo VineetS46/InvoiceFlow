@@ -3,21 +3,22 @@ const { validateFirebaseToken } = require('../helpers/firebase-auth');
 const { container } = require('../helpers/cosmosClient');
 
 app.http('getAnalyticsData', {
-    methods: ['GET', 'OPTIONS'], // Must handle both GET and OPTIONS
+    methods: ['GET', 'OPTIONS'], 
     authLevel: 'anonymous',
     handler: async (request, context) => {
-        // --- THIS IS THE FIX FOR THE CORS ERROR ---
+       
         const allowedOrigin = process.env.ALLOWED_ORIGIN || 'http://localhost:3000';
         const corsHeaders = {
             'Access-Control-Allow-Origin': allowedOrigin,
             'Access-Control-Allow-Methods': 'GET, OPTIONS',
-            'Access-Control-Allow-Headers': 'Authorization, Content-Type'
+            'Access-Control-Allow-Headers': 'Authorization, Content-Type, x-workspace-id'
+
         };
 
         if (request.method === 'OPTIONS') {
             return { status: 200, headers: corsHeaders, body: '' };
         }
-        // --- END OF CORS FIX ---
+       
 
         try {
             const decodedToken = await validateFirebaseToken(request);
@@ -26,10 +27,17 @@ app.http('getAnalyticsData', {
             }
             const userId = decodedToken.uid;
 
-            // This query is robust and handles old/new data schemas
+                    
+            const workspaceId = request.headers.get('x-workspace-id');
+            if (!workspaceId) {
+                return { status: 400, headers: corsHeaders, jsonBody: { error: "Workspace ID is missing." } };
+            }
+           
+
+            // Update the query to filter by 'workspaceId'
             const querySpec = {
-                query: "SELECT * FROM c WHERE c.userId = @userId AND (c.docType = 'invoice' OR NOT IS_DEFINED(c.docType))",
-                parameters: [{ name: "@userId", value: userId }]
+                query: "SELECT * FROM c WHERE c.workspaceId = @workspaceId AND (c.docType = 'invoice' OR NOT IS_DEFINED(c.docType))",
+                parameters: [{ name: "@workspaceId", value: workspaceId }]
             };
             const { resources: allInvoices } = await container.items.query(querySpec).fetchAll();
 
@@ -72,7 +80,7 @@ app.http('getAnalyticsData', {
                 const category = invoice.category || 'Uncategorized';
                 categoryTotals[category] = (categoryTotals[category] || 0) + invoice.invoiceTotal;
             }
-            // --- END OF 500 ERROR FIX ---
+            
             
             const sortedMonths = Object.keys(monthlyTotals).sort();
             const spendingByMonth = sortedMonths.map(monthKey => {

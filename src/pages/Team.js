@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
+import api from '../helpers/api';
 import {
   Paper, Typography, TextField, Button, Grid, FormControl,
   InputLabel, Select, MenuItem, Divider, List, ListItem,
@@ -11,6 +12,7 @@ import { Person as PersonIcon, People as PeopleIcon } from '@material-ui/icons';
 import './Team.css'; // We will create this CSS file next
 
 const Team = () => {
+   const auth = useAuth();
   const { currentUser, currentWorkspace, userProfile } = useAuth();
 
   const [email, setEmail] = useState('');
@@ -21,63 +23,37 @@ const Team = () => {
   // State to hold the list of members (we'll fetch this in the future)
   const [members, setMembers] = useState([]);
 
-  // This useEffect will populate the initial members list for the UI
   useEffect(() => {
-    if (currentUser && userProfile) {
-        // For now, we only show the current user (the owner)
-        // A future version would fetch all users belonging to currentWorkspace.id
-        setMembers([{
-            displayName: currentUser.displayName,
-            email: currentUser.email,
-            photoURL: currentUser.photoURL,
-            role: userProfile.workspaces[currentWorkspace.id]
-        }]);
+    if (currentUser && userProfile && currentWorkspace) {
+      setMembers([{
+          displayName: currentUser.displayName,
+          email: currentUser.email,
+          photoURL: currentUser.photoURL,
+          role: userProfile.workspaces[currentWorkspace.id]
+      }]);
     }
   }, [currentUser, userProfile, currentWorkspace]);
 
-
   const handleInviteSubmit = async (e) => {
     e.preventDefault();
-
     if (!email.trim() || !email.includes('@')) {
       setFeedback({ open: true, message: 'Please enter a valid email address.', severity: 'error' });
       return;
     }
-    
-    if (!currentUser || !currentWorkspace) {
-      setFeedback({ open: true, message: 'Authentication error. Please refresh and try again.', severity: 'error' });
-      return;
-    }
-
     setLoading(true);
-
     try {
-      const token = await currentUser.getIdToken();
-      
-      const response = await fetch('http://localhost:7071/api/inviteUser', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          'x-workspace-id': currentWorkspace.id
-        },
-        body: JSON.stringify({
-          email: email,
-          role: role,
-          workspaceName: currentWorkspace.name
-        })
-      });
+      // --- UPDATED: Use the clean api.post method ---
+      const body = {
+        email: email,
+        role: role,
+        workspaceName: currentWorkspace.name
+      };
+      // The helper automatically adds the token and workspaceId from the headers
+      const result = await api.post('inviteUser', body, auth);
 
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to send invitation');
-      }
-
-      setFeedback({ open: true, message: `Invitation sent to ${email}!`, severity: 'success' });
+      setFeedback({ open: true, message: result.message || 'Invitation sent!', severity: 'success' });
       setEmail('');
       setRole('member');
-      
     } catch (err) {
       setFeedback({ open: true, message: err.message || 'An unknown error occurred.', severity: 'error' });
     } finally {

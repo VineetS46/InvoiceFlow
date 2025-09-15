@@ -19,34 +19,44 @@ export function useAuth() {
 }
 
 const CATEGORY_TEMPLATES = {
-    'GENERAL_BUSINESS': [
-        { name: "Software & SaaS", tags: ["microsoft", "adobe", "zoom", "saas", "subscription", "office 365", "google workspace", "canva", "notion"] },
-        { name: "Marketing & Advertising", tags: ["google ads", "facebook ads", "marketing", "seo", "brightedge", "mailchimp"] },
-        { name: "Professional Services", tags: ["legal", "accounting", "consulting", "law firm", "website redesign"] },
-        { name: "Office Supplies & Equipment", tags: ["staples", "office depot", "stationery", "supplies", "hardware", "equipment", "dell", "lenovo"] },
-        { name: "Shipping & Postage", tags: ["fedex", "dhl", "ups", "shipping", "courier", "postage"] },
-        { name: "Utilities", tags: ["electric", "water", "gas", "internet", "phone"] },
-        { name: "Rent & Lease", tags: ["rent", "lease", "office space"] },
-        { name: "Business Insurance", tags: ["insurance", "liability", "policy"] },
-    ],
-    'PERSONAL_FINANCE': [
-        { name: "Housing", tags: ["rent", "mortgage", "property tax", "home maintenance"] },
-        { name: "Utilities", tags: ["electricity", "water", "gas", "phone", "internet"] },
-        { name: "Groceries", tags: ["grocery", "supermarket", "walmart", "big bazaar"] },
-        { name: "Transportation", tags: ["fuel", "gasoline", "public transit", "vehicle maintenance", "ride sharing", "uber", "lyft", "ola"] },
-        { name: "Health & Wellness", tags: ["insurance", "pharmacy", "gym", "medical", "doctor", "dentist", "mamaearth", "honasa"] },
-        { name: "Shopping & Retail", tags: ["clothing", "electronics", "hobbies", "amazon", "flipkart"] },
-        { name: "Meals & Entertainment", tags: ["restaurant", "cafe", "takeout", "zomato", "swiggy", "doordash", "starbucks", "events", "movies", "subscriptions"] },
-        { name: "Education", tags: ["tuition", "books", "courses", "udemy"] },
-        { name: "Travel & Accommodation", tags: ["flight", "hotel", "airbnb", "marriott", "hilton", "expedia"] },
-    ],
-    'IT_SERVICES': [
-        { name: "Software Licensing", tags: ["microsoft", "oracle", "jet-brains", "license", "vmware"] },
-        { name: "Cloud Services", tags: ["aws", "azure", "google cloud", "gcp", "hosting", "domain", "digitalocean"] },
-        { name: "Hardware Procurement", tags: ["dell", "lenovo", "server", "laptop", "hardware", "networking"] },
-        { name: "Employee Salaries", tags: ["salary", "payroll"] },
-        { name: "Subcontractor Fees", tags: ["contractor", "freelaner", "consultant"] },
-    ],
+     'GENERAL_BUSINESS': [
+    { name: "Software & SaaS", tags: ["microsoft", "adobe", "zoom", "saas", "subscription", "office 365", "google workspace", "canva", "notion"] },
+    { name: "Marketing & Advertising", tags: ["google ads", "facebook ads", "marketing", "seo", "brightedge", "mailchimp"] },
+    { name: "Professional Services", tags: ["legal", "accounting", "consulting", "law firm", "website redesign"] },
+    { name: "Office Supplies & Equipment", tags: ["staples", "office depot", "stationery", "supplies", "hardware", "equipment", "dell", "lenovo"] },
+    { name: "Shipping & Postage", tags: ["fedex", "dhl", "ups", "shipping", "courier", "postage"] },
+    { name: "Events & Sponsorships", tags: ["event", "conference", "booth", "sponsorship", "networking"] },
+    { name: "Training & Development", tags: ["workshop", "training", "courses", "certification", "employee growth"] },
+    { name: "Travel & Accommodation", tags: ["flight", "hotel", "airbnb", "uber", "taxi", "car rental"] },
+    { name: "Maintenance & Repairs", tags: ["repairs", "maintenance", "equipment service", "facility upkeep"] },
+    { name: "Taxes & Licenses", tags: ["tax", "license", "permit", "registration", "compliance"] },
+  ],
+
+  'PERSONAL_FINANCE': [
+    { name: "Housing", tags: ["rent", "mortgage", "property tax", "home maintenance"] },
+    { name: "Utilities", tags: ["electricity", "water", "gas", "phone", "internet"] },
+    { name: "Groceries", tags: ["grocery", "supermarket", "walmart", "big bazaar"] },
+    { name: "Transportation", tags: ["fuel", "gasoline", "public transit", "vehicle maintenance", "ride sharing", "uber", "lyft", "ola"] },
+    { name: "Health & Wellness", tags: ["insurance", "pharmacy", "gym", "medical", "doctor", "dentist", "mamaearth", "honasa"] },
+    { name: "Shopping & Retail", tags: ["clothing", "electronics", "hobbies", "amazon", "flipkart"] },
+    { name: "Meals & Entertainment", tags: ["restaurant", "cafe", "takeout", "zomato", "swiggy", "movies", "subscriptions"] },
+    { name: "Education", tags: ["tuition", "books", "courses", "udemy", "coaching"] },
+    { name: "Travel & Vacation", tags: ["flight", "hotel", "airbnb", "holiday", "expedia"] },
+    { name: "Investments & Savings", tags: ["mutual funds", "stocks", "fixed deposit", "savings", "crypto"] },
+  ],
+
+  'IT_SERVICES': [
+    { name: "Software Licensing", tags: ["microsoft", "oracle", "jet-brains", "license", "vmware"] },
+    { name: "Cloud Services", tags: ["aws", "azure", "google cloud", "gcp", "hosting", "domain", "digitalocean"] },
+    { name: "Hardware Procurement", tags: ["dell", "lenovo", "server", "laptop", "hardware", "networking"] },
+    { name: "Employee Salaries", tags: ["salary", "payroll", "compensation"] },
+    { name: "Subcontractor Fees", tags: ["contractor", "freelancer", "consultant", "outsourcing"] },
+    { name: "Security & Compliance", tags: ["firewall", "antivirus", "compliance", "penetration testing", "security audit"] },
+    { name: "Research & Development", tags: ["r&d", "innovation", "prototype", "testing", "experimentation"] },
+    { name: "Customer Support Tools", tags: ["zendesk", "freshdesk", "intercom", "support software"] },
+    { name: "Networking & Infrastructure", tags: ["routers", "switches", "cabling", "infrastructure"] },
+    { name: "Training & Certifications", tags: ["aws certification", "azure training", "upskilling", "online course"] },
+  ],
 };
 
 export function AuthProvider({ children }) {
@@ -54,7 +64,7 @@ export function AuthProvider({ children }) {
   const [userProfile, setUserProfile] = useState(null);
   const [currentWorkspace, setCurrentWorkspace] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [onboardingRequired, setOnboardingRequired] = useState(false); // The critical state flag
+  const [onboardingRequired, setOnboardingRequired] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -64,7 +74,6 @@ export function AuthProvider({ children }) {
         let userDoc = await getDoc(userDocRef);
 
         if (userDoc.exists()) {
-          // This is a returning user who has completed onboarding.
           setOnboardingRequired(false);
           const profile = userDoc.data();
           setUserProfile(profile);
@@ -76,12 +85,9 @@ export function AuthProvider({ children }) {
             }
           }
         } else {
-          // This is a brand new user (from email signup or first Google sign-in).
-          // We set the flag to force them to the onboarding page.
           setOnboardingRequired(true);
         }
       } else {
-        // User logged out, reset everything
         setCurrentUser(null);
         setUserProfile(null);
         setCurrentWorkspace(null);
@@ -92,20 +98,15 @@ export function AuthProvider({ children }) {
     return unsubscribe;
   }, []);
 
-  // Simplified signup: just creates the auth user.
-  // The onAuthStateChanged hook will then trigger the onboarding flow.
   async function signup(email, password, username) {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    // Set their display name so it can be used on the onboarding screen
     await updateProfile(userCredential.user, { displayName: username });
     return userCredential;
   }
   
-  // NEW function called ONLY from the Onboarding screen
   async function completeOnboarding(workspaceName, workspaceType) {
-    if (!currentUser) throw new Error("User not authenticated for onboarding.");
-    
-    // Check for an invitation FIRST.
+    if (!currentUser) throw new Error("User not authenticated.");
+
     const invitesRef = collection(db, "invites");
     const q = query(invitesRef, where("email", "==", currentUser.email.toLowerCase()), where("status", "==", "pending"));
     const inviteSnapshot = await getDocs(q);
@@ -116,17 +117,13 @@ export function AuthProvider({ children }) {
     let userRole;
     
     if (!inviteSnapshot.empty) {
-      // Employee workflow: Use the invited workspace
       const inviteDoc = inviteSnapshot.docs[0];
       const inviteData = inviteDoc.data();
       workspaceId = inviteData.workspaceId;
       userRole = inviteData.role;
-      
       const inviteDocRef = doc(db, 'invites', inviteDoc.id);
       batch.update(inviteDocRef, { status: "accepted", acceptedAt: new Date(), acceptedBy: currentUser.uid });
-      
     } else {
-      // Owner workflow: Create a new workspace
       workspaceId = `ws_${uuidv4()}`;
       userRole = "owner";
       const categoryTemplate = CATEGORY_TEMPLATES[workspaceType] || CATEGORY_TEMPLATES['GENERAL_BUSINESS'];
@@ -140,7 +137,6 @@ export function AuthProvider({ children }) {
       });
     }
 
-    // Create the user profile document
     const newUserProfile = {
       uid: currentUser.uid,
       displayName: currentUser.displayName,
@@ -150,12 +146,28 @@ export function AuthProvider({ children }) {
     batch.set(userDocRef, newUserProfile);
     await batch.commit();
 
-    // Onboarding is now complete. Turn off the flag and load the data.
     const finalWorkspaceDoc = await getDoc(doc(db, 'workspaces', workspaceId));
     setUserProfile(newUserProfile);
     setCurrentWorkspace({ id: finalWorkspaceDoc.id, ...finalWorkspaceDoc.data() });
     setOnboardingRequired(false);
   }
+
+  const updateWorkspace = async (workspaceId, newData) => {
+    if (!currentUser || !workspaceId) throw new Error("Authentication or workspace ID is missing.");
+    const workspaceDocRef = doc(db, 'workspaces', workspaceId);
+    
+    const currentWsDoc = await getDoc(workspaceDocRef);
+    if (currentWsDoc.exists() && currentWsDoc.data().ownerId !== currentUser.uid) {
+        throw new Error("You do not have permission to edit this workspace.");
+    }
+    
+    await updateDoc(workspaceDocRef, newData);
+    
+    const updatedDoc = await getDoc(workspaceDocRef);
+    if (updatedDoc.exists()) {
+      setCurrentWorkspace({ id: updatedDoc.id, ...updatedDoc.data() });
+    }
+  };
 
   const login = (email, password) => signInWithEmailAndPassword(auth, email, password);
   const loginWithGoogle = () => signInWithPopup(auth, new GoogleAuthProvider());
@@ -166,9 +178,10 @@ export function AuthProvider({ children }) {
     userProfile,
     currentWorkspace,
     loading,
-    onboardingRequired, // The flag our router will use
+    onboardingRequired,
     signup,
-    completeOnboarding, // The function for the onboarding screen
+    completeOnboarding,
+    updateWorkspace,
     login,
     loginWithGoogle,
     logout,

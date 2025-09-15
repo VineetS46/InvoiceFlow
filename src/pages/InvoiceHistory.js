@@ -1,23 +1,19 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../hooks/useAuth';
+import api from '../helpers/api'; // Import our new API helper
 import './InvoiceHistory.css';
 import {
     Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
     CircularProgress, Typography, IconButton, Menu, MenuItem, Grid, TextField,
-    FormControl, InputLabel, Select, Tooltip,
-    Button // <-- THIS IS THE FIX. 'Button' is now imported.
+    FormControl, InputLabel, Select, Tooltip, Button
 } from '@material-ui/core';
 import { MoreVert, Visibility, GetApp, Edit, Search, Clear } from '@material-ui/icons';
 
-const CATEGORIES = [
-    'Office Supplies', 'Software & Subscriptions', 'Utilities', 'Rent & Lease',
-    'Marketing & Advertising', 'Travel & Accommodation', 'Meals & Entertainment',
-    'Professional Services', 'Contractors & Freelancers', 'Hardware & Equipment',
-    'Shipping & Postage', 'Insurance', 'Phone & Internet', 'Employee Benefits', 'Other'
-];
-
 const InvoiceHistory = () => {
-    const { currentUser, loading: authLoading } = useAuth();
+    // Get the full auth context, including the currentWorkspace
+    const auth = useAuth();
+    const { currentUser, currentWorkspace, loading: authLoading } = auth;
+
     const [invoices, setInvoices] = useState([]);
     const [isLoadingData, setIsLoadingData] = useState(true);
     const [error, setError] = useState('');
@@ -31,18 +27,17 @@ const InvoiceHistory = () => {
     const [endDate, setEndDate] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('');
 
-    useEffect(() => {
+       useEffect(() => {
         const fetchInvoices = async () => {
-            if (!currentUser) { setIsLoadingData(false); return; }
+            if (!currentUser || !currentWorkspace) {
+                setIsLoadingData(false);
+                return;
+            }
             setIsLoadingData(true);
             setError('');
             try {
-                const token = await currentUser.getIdToken();
-                const response = await fetch(`http://localhost:7071/api/getInvoices`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (!response.ok) throw new Error('Failed to fetch invoice history.');
-                const data = await response.json();
+                // UPDATED: Use the clean api.get method
+                const data = await api.get('getInvoices', auth);
                 setInvoices(Array.isArray(data) ? data : []);
             } catch (err) {
                 setError(err.message);
@@ -53,13 +48,17 @@ const InvoiceHistory = () => {
         };
 
         if (!authLoading) fetchInvoices();
-    }, [currentUser, authLoading]);
+    }, [auth, authLoading, currentUser, currentWorkspace]);
+
+    const userCategories = useMemo(() => {
+        return currentWorkspace?.categories?.map(cat => cat.name) || [];
+    }, [currentWorkspace]);
 
     const filteredInvoices = useMemo(() => {
         return invoices.filter(invoice => {
             const lowerCaseSearchTerm = searchTerm.toLowerCase();
             const matchesSearchTerm = lowerCaseSearchTerm === '' ||
-                invoice.vendorName.toLowerCase().includes(lowerCaseSearchTerm) ||
+                (invoice.vendorName || '').toLowerCase().includes(lowerCaseSearchTerm) ||
                 (invoice.lineItems || []).some(item => 
                     item.description?.toLowerCase().includes(lowerCaseSearchTerm)
                 );
@@ -80,14 +79,10 @@ const InvoiceHistory = () => {
 
     const handleUpdateInvoice = async (invoiceToUpdate, dataToUpdate) => {
         try {
-            const token = await currentUser.getIdToken();
-            const response = await fetch(`http://localhost:7071/api/editInvoice?id=${invoiceToUpdate.id}`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify(dataToUpdate)
-            });
-            const updatedInvoice = await response.json();
-            if (!response.ok) throw new Error(updatedInvoice.error || 'Failed to update invoice.');
+            // UPDATED: Use the clean api.post method
+            const endpoint = `editinvoice?id=${invoiceToUpdate.id}`;
+            const updatedInvoice = await api.post(endpoint, dataToUpdate, auth);
+
             setInvoices(prevInvoices => 
                 prevInvoices.map(inv => (inv.id === updatedInvoice.id ? updatedInvoice : inv))
             );
@@ -95,6 +90,7 @@ const InvoiceHistory = () => {
             alert(`Error: ${err.message}`);
         }
     };
+
 
     const handleMenuOpen = (event, invoice, menuType) => {
         setSelectedInvoice(invoice);
@@ -112,7 +108,9 @@ const InvoiceHistory = () => {
     };
 
     const handleCategorySelect = (newCategory) => {
-        handleUpdateInvoice(selectedInvoice, { category: newCategory });
+        if (selectedInvoice) {
+            handleUpdateInvoice(selectedInvoice, { category: newCategory });
+        }
         handleMenuClose();
     };
     
@@ -127,17 +125,20 @@ const InvoiceHistory = () => {
 
     const formatCurrency = (amount, currencyCode) => {
         if (typeof amount !== 'number') return 'N/A';
-        return new Intl.NumberFormat('en-IN', { style: 'currency', currency: currencyCode }).format(amount);
+        return new Intl.NumberFormat('en-IN', { style: 'currency', currency: currencyCode || 'INR' }).format(amount);
     };
 
     const handleFileAction = async (action) => {
         if (!selectedInvoice) return;
         try {
-            const token = await currentUser.getIdToken();
-            let url, response;
+            let url, response, data;
             if (action === 'view') {
+                // api.get() is for JSON, for a file blob we still need a direct fetch
                 url = `http://localhost:7071/api/generateInvoicePdf?id=${selectedInvoice.id}`;
-                response = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+                const token = await currentUser.getIdToken();
+                response = await fetch(url, { 
+                    headers: { 'Authorization': `Bearer ${token}`, 'x-workspace-id': currentWorkspace.id } 
+                });
                 if (!response.ok) {
                     const errorData = await response.json();
                     throw new Error(errorData.error || 'Could not generate PDF.');
@@ -146,10 +147,9 @@ const InvoiceHistory = () => {
                 const fileURL = URL.createObjectURL(blob);
                 window.open(fileURL, '_blank');
             } else if (action === 'download') {
-                url = `http://localhost:7071/api/getDownloadUrl?id=${selectedInvoice.id}`;
-                response = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
-                const data = await response.json();
-                if (!response.ok) throw new Error(data.error || 'Could not get file URL.');
+                // Use api.get for the URL, which is a JSON response
+                url = `getDownloadUrl?id=${selectedInvoice.id}`;
+                data = await api.get(url, auth);
                 const link = document.createElement('a');
                 link.href = data.downloadUrl;
                 link.download = selectedInvoice.fileName || `invoice-${selectedInvoice.id}.pdf`;
@@ -173,7 +173,6 @@ const InvoiceHistory = () => {
                 <div className="panel-header">
                     <Typography variant="h5" className="panel-title">Invoice History</Typography>
                 </div>
-
                 <div className="panel-filters">
                     <Grid container spacing={2} alignItems="center">
                         <Grid item xs={12} md={4}><TextField fullWidth label="Search by Vendor/Description" variant="outlined" size="small" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} InputProps={{ endAdornment: <Search color="action" /> }} /></Grid>
@@ -182,7 +181,8 @@ const InvoiceHistory = () => {
                                 <InputLabel>Category</InputLabel>
                                 <Select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} label="Category">
                                     <MenuItem value=""><em>All Categories</em></MenuItem>
-                                    {CATEGORIES.map(cat => (<MenuItem key={cat} value={cat}>{cat}</MenuItem>))}
+                                    <MenuItem value="Uncategorized"><em>Uncategorized</em></MenuItem>
+                                    {userCategories.map(cat => (<MenuItem key={cat} value={cat}>{cat}</MenuItem>))}
                                 </Select>
                             </FormControl>
                         </Grid>
@@ -191,7 +191,6 @@ const InvoiceHistory = () => {
                         <Grid item xs={12} md={1} style={{ textAlign: 'center' }}><Tooltip title="Clear Filters"><IconButton onClick={handleClearFilters}><Clear /></IconButton></Tooltip></Grid>
                     </Grid>
                 </div>
-
                 <TableContainer>
                     <Table aria-label="invoice history table">
                         <TableHead>
@@ -244,7 +243,7 @@ const InvoiceHistory = () => {
             </Menu>
 
             <Menu anchorEl={categoryMenuAnchor} open={Boolean(categoryMenuAnchor)} onClose={handleMenuClose}>
-                {CATEGORIES.map(cat => (
+                {userCategories.map(cat => (
                     <MenuItem key={cat} onClick={() => handleCategorySelect(cat)}>
                         {cat}
                     </MenuItem>

@@ -1,77 +1,146 @@
+/* General Page Layout & Typography */
+body {
+    background-color: #f4f6f9;
+    font-family: 'Inter', sans-serif;
+}
+
 .profile-page {
-    background-color: #f4f6f8;
-    padding: 24px;
+    padding: 32px;
+    display: flex;
+    justify-content: center;
 }
 
 .main-panel {
     max-width: 1200px;
-    margin: 0 auto;
-    border-radius: 8px !important;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.05) !important;
+    width: 100%;
+    padding: 40px;
+    border-radius: 12px !important;
+    background-color: #ffffff;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08) !important;
 }
 
 .panel-header {
-    padding: 20px 24px;
-    border-bottom: 1px solid #dfe3e8;
-}
-
-.panel-title {
-    font-weight: 600 !important;
-}
-
-.sticky-actions {
-    position: sticky;
-    top: 0;
-    background-color: rgba(255, 255, 255, 0.9);
-    backdrop-filter: blur(8px);
-    padding: 16px 24px;
-    border-bottom: 1px solid #dfe3e8;
-    display: flex;
-    justify-content: flex-end;
-    gap: 16px;
-    z-index: 10;
-}
-
-.panel-content {
-    padding: 24px;
-}
-
-.section-title {
-    font-weight: 500 !important;
-}
-
-.section-subtitle {
-    margin-bottom: 24px !important;
-}
-
-.category-card {
-    padding: 16px;
-}
-
-.category-card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 12px;
-}
-
-.category-name-input .MuiInput-underline:before,
-.category-name-input .MuiInput-underline:after {
+    padding: 0 0 24px 0 !important;
     border-bottom: none !important;
 }
 
-.category-name-input .MuiInputBase-input {
-    font-size: 1.1rem !important;
-    font-weight: 500 !important;
+.panel-title {
+    color: #2c3e50 !important;
+    font-weight: 600 !important;
+    font-size: 1.5rem !important;
 }
 
-.tags-container {
+.panel-content {
+    padding: 0 !important;
+}
+
+/* Category Manager Header & Actions */
+.category-manager-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 32px;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.section-title {
+    font-weight: 600 !important;
+    color: #2c3e50 !important;
+    margin-bottom: 4px !important;
+}
+
+.section-subtitle {
+    margin-bottom: 0 !important;
+}
+
+.header-actions {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+}
+
+.MuiTextField-root .MuiOutlinedInput-root {
+    background-color: #f9fafb !important;
+}
+
+.MuiButton-outlinedPrimary {
+    border-color: #3498db !important;
+    color: #3498db !important;
+}
+
+.MuiButton-outlinedPrimary:hover {
+    background-color: rgba(52, 152, 219, 0.04) !important;
+}
+
+/* Category Cards */
+.category-card {
+    padding: 24px !important;
+    border-radius: 12px !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06) !important;
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    background-color: #fefefe !important;
+    height: auto !important;
+}
+
+.category-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1) !important;
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.card-title {
+    font-weight: 600 !important;
+    color: #34495e !important;
+    font-size: 1.25rem !important;
+}
+
+.card-actions {
+    display: flex;
+    gap: 4px;
+}
+
+.tag-container {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
-    padding: 16px 0;
+    gap: 12px;
+    min-height: auto !important;
 }
 
-.tag-chip {
-    background-color: #e3e3e3 !important;
+/* Updated Tag Chip Styling */
+.category-chip {
+    background-color: #1976d2 !important;
+    color: #333 !important;
+    font-weight: 500 !important;
+    padding: 4px 12px !important;
+    border-radius: 20px !important;
+    border: 1px solid rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Dialog Styling */
+.MuiDialog-paper {
+    border-radius: 12px !important;
+}
+
+.MuiDialogTitle-root {
+    font-weight: 600 !important;
+    color: #34495e !important;
+}
+
+.edit-tags {
+    margin: 16px 0 !important;
+}
+
+.MuiDialogActions-root {
+    padding: 16px 24px !important;
+}
+
+.MuiButton-containedPrimary {
+    background-color: #3498db !important;
 }
