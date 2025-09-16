@@ -1,28 +1,32 @@
-/* --- General Layout & Grids --- */
-/* Fix header text colors */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+.dashboard-page {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background-color: #f4f6f8;
+    min-height: 100vh;
+    padding: 24px;
+}
+
 .welcome-header h1 {
-  font-size: 28px;
-  font-weight: 600;
-  color: #000 !important; /* Black text for the username + workspace */
-  margin-bottom: 4px;
+    font-size: 28px;
+    font-weight: 600;
+    color: #172b4d !important;
+    margin-bottom: 4px;
 }
 
 .welcome-header p {
-  color: #000 !important;  /* Black text for the summary */
-  font-size: 16px;
-  font-weight: 400;
-}
-.dashboard-header p {
-    color: #7f8c8d;
+    color: #5e6c84 !important;
     font-size: 16px;
+    font-weight: 400;
 }
 
 
 .stats-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 25px;
-    margin-bottom: 30px;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 24px;
+    margin-bottom: 32px;
 }
 .main-content-grid {
     display: grid;
@@ -40,37 +44,82 @@
 /* --- Stat Card Styles --- */
 .stat-card {
     background-color: #fff;
-    padding: 25px;
+    padding: 24px;
     border-radius: 12px;
     display: flex;
     align-items: center;
-    border: 1px solid #ecf0f1;
-    transition: all 0.3s ease;
-    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.04);
+    border: 1px solid #dfe1e6;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    position: relative;
 }
+
 .stat-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
+
+.stat-card.blue {
+    border-left: 4px solid #5d46ff;
+}
+
+.stat-card.green {
+    border-left: 4px solid #00875a;
+}
+
+.stat-card.red {
+    border-left: 4px solid #de350b;
+}
+
+.stat-card.orange {
+    border-left: 4px solid #ff8b00;
+}
+
 .stat-icon-wrapper {
-    padding: 15px;
+    width: 48px;
+    height: 48px;
     border-radius: 50%;
-    margin-right: 20px;
+    margin-right: 16px;
     display: flex;
     align-items: center;
     justify-content: center;
 }
-.stat-info .stat-title {
-    font-size: 14px;
-    color: #7f8c8d;
-    display: block;
-    margin-bottom: 5px;
-    font-weight: 500;
-    text-transform: uppercase;
+
+.stat-icon-wrapper.blue {
+    background-color: rgba(93, 70, 255, 0.1);
+    color: #5d46ff;
 }
-.stat-info .stat-value {
-    font-size: 26px;
+
+.stat-icon-wrapper.green {
+    background-color: rgba(0, 135, 90, 0.1);
+    color: #00875a;
+}
+
+.stat-icon-wrapper.red {
+    background-color: rgba(222, 53, 11, 0.1);
+    color: #de350b;
+}
+
+.stat-icon-wrapper.orange {
+    background-color: rgba(255, 139, 0, 0.1);
+    color: #ff8b00;
+}
+
+.stat-info .stat-title {
+    font-size: 12px;
+    color: #6b778c;
+    display: block;
+    margin-bottom: 8px;
     font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.stat-info .stat-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: #172b4d;
+    line-height: 1;
 }
 
 
@@ -170,94 +219,98 @@
 }
 
 /* --- Recent Invoices Styles --- */
+.recent-invoices-section h2 {
+    font-size: 20px;
+    margin-bottom: 16px;
+    color: #172b4d;
+    font-weight: 600;
+}
+
+.section-divider {
+    margin: 8px 0 20px 0 !important;
+    background-color: #dfe1e6 !important;
+}
+
+.invoice-list {
+    padding: 0 !important;
+}
+
+.invoice-item {
+    display: grid !important;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    padding: 16px 0 !important;
+    border-bottom: 1px solid #dfe1e6 !important;
+    border-radius: 0 !important;
+    gap: 16px;
+}
+
+.invoice-item:last-child {
+    border-bottom: none !important;
+}
+
+.invoice-info-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    grid-template-rows: auto auto;
+    gap: 4px 24px;
+    align-items: center;
+}
+
+.invoice-vendor {
+    grid-column: 1;
+    grid-row: 1;
+    font-weight: 600;
+    color: #172b4d;
+    font-size: 14px;
+}
+
 .invoice-description {
     grid-column: 1;
-    font-size: 14px;
-    color: #7f8c8d;
+    grid-row: 2;
+    font-size: 13px;
+    color: #6b778c;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
-.recent-invoices-section h2 {
-    font-size: 20px;
-    margin-bottom: 20px;
-    color: #2c3e50;
-}
-
-.invoice-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-}
-
-/* The main container for each invoice row */
-.invoice-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 15px 5px;
-    border-bottom: 1px solid #f0f2f5;
-}
-
-.invoice-item:last-child {
-    border-bottom: none;
-}
-
-/* --- THIS IS THE NEW GRID LAYOUT --- */
-.invoice-info-grid {
-    flex-grow: 1; /* Allows the grid to take up available space */
-    display: grid;
-    /* Defines two columns: 1st takes up space, 2nd is as wide as its content */
-    grid-template-columns: 1fr auto; 
-    /* Defines a gap between the two columns */
-    column-gap: 20px;
-     /* Defines a small gap between the rows */
-    row-gap: 6px;
-}
-
-/* Styles for the individual grid items */
-.invoice-id {
-    grid-column: 1; /* Places this in the first column */
-    font-weight: 600;
-    color: #34495e;
-    font-size: 0.9rem;
-}
 
 .invoice-amount {
-    grid-column: 2; /* Places this in the second column */
+    grid-column: 2;
+    grid-row: 2;
     font-weight: 600;
-    color: #2c3e50;
-    font-size: 0.9rem;
-    text-align: right; /* Aligns the text to the right */
-}
-
-.invoice-vendor {
-    grid-column: 1; /* Places this in the first column */
+    color: #172b4d;
+    justify-self: end;
     font-size: 14px;
-    color: #7f8c8d;
 }
 
-/* The status badge */
-.invoice-status {
-    grid-column: 2; /* Places this in the second column */
-    justify-self: end; /* Aligns the entire badge element to the right */
-    display: inline-block;
-    padding: 4px 12px;
-    border-radius: 12px;
-    font-size: 12px;
-    font-weight: 700;
-    text-transform: uppercase;
+.status-chip {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+    font-size: 10px !important;
+    height: 24px !important;
+    font-weight: 700 !important;
 }
 
-.invoice-status.paid { background-color: #e4f8f0; color: #2ecc71; }
-.invoice-status.pending { background-color: #fef5e7; color: #f39c12; }
-.invoice-status.overdue { background-color: #fdeeee; color: #e74c3c; }
+.status-chip.status-paid {
+    background-color: #e3fcef !important;
+    color: #006644 !important;
+}
 
-/* Styles for the action menu button on the far right */
+.status-chip.status-pending {
+    background-color: #fffbe6 !important;
+    color: #974f0c !important;
+}
+
+.status-chip.status-overdue {
+    background-color: #ffebe6 !important;
+    color: #bf2600 !important;
+}
+
 .invoice-actions {
-    margin-left: 16px; 
+    justify-self: end;
 }
-
 .invoice-action-btn {
     padding: 6px !important;
     color: #7f8c8d !important;
@@ -328,6 +381,4 @@
     font-size: 2rem;
     color: inherit;
 }
-.stat-icon-wrapper.blue { background-color: #e6f0ff; color: #007BFF; }
-.stat-icon-wrapper.green { background-color: #eafaf1; color: #28a745; }
-.stat-icon-wrapper.red { background-color: #fdeeee; color: #e74c3c; }
+
