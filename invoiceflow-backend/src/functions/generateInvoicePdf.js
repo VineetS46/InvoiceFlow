@@ -68,7 +68,7 @@ app.http('generateInvoicePdf', {
                 .replace(new RegExp('{{INVOICE_ID}}', 'g'), invoice.invoiceId || 'N/A')
                 .replace(new RegExp('{{CUSTOMER_NAME}}', 'g'), invoice.customerName || 'N/A')
                 .replace(new RegExp('{{VENDOR_NAME}}', 'g'), invoice.vendorName || 'N/A')
-                .replace(new RegExp('{{LOGO_DATA_URI}}', 'g'), logoDataUri)
+                 .replace(new RegExp('{{LOGO_DATA_URI}}', 'g'), logoDataUri)
                 .replace(new RegExp('{{INVOICE_DATE}}', 'g'), new Date(invoice.invoiceDate).toLocaleDateString())
                 .replace(new RegExp('{{LINE_ITEMS_HTML}}', 'g'), lineItemsHtml)
                 .replace(new RegExp('{{CATEGORY}}', 'g'), invoice.category || 'Uncategorized')

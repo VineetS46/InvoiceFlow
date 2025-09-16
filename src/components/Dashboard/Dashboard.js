@@ -16,7 +16,7 @@ import './Dashboard.css';
 
 const Dashboard = () => {
     const auth = useAuth();
-    const { currentUser, currentWorkspace } = auth;
+    const { currentUser, currentWorkspace, loading: authLoading } = auth;
     const fileInputRef = useRef(null);
 
     const [dashboardData, setDashboardData] = useState(null);
@@ -31,7 +31,8 @@ const Dashboard = () => {
      const [isDragging, setIsDragging] = useState(false);
      
     const fetchDashboardData = useCallback(async () => {
-        if (!currentUser || !currentWorkspace) {
+        if (authLoading || !currentUser || !currentWorkspace) {
+            // If we are not ready to fetch, ensure loading is turned off.
             setIsLoading(false);
             return;
         }
@@ -46,7 +47,7 @@ const Dashboard = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [auth, currentUser, currentWorkspace]);
+    },  [authLoading, currentUser, currentWorkspace]);
 
     useEffect(() => {
         fetchDashboardData();
@@ -100,9 +101,10 @@ const Dashboard = () => {
         if (!isUploading) processFiles(e.dataTransfer.files);
     };
 
-    if (isLoading) {
+  if (authLoading || isLoading) {
         return <div className="loading-container"><CircularProgress /></div>;
     }
+
     if (error) {
         return <div className="error-container">{error}</div>;
     }
