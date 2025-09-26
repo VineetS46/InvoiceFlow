@@ -6,11 +6,11 @@ const { validateFirebaseToken } = require('../helpers/firebase-auth');
 const admin = require('../helpers/firebaseAdmin');
 const db = admin.firestore();
 const pdfParse = require('pdf-parse');
-const Groq = require('groq-sdk'); // Import the official Groq SDK
+const Groq = require('groq-sdk'); // Use the correct Groq SDK
 
 const allowedOrigin = process.env.ALLOWED_ORIGIN || 'http://localhost:3000';
 const corsHeaders = {
-    'Access-Control-Allow-Origin': allowedOrigin,
+   'Access-Control-Allow-Origin': allowedOrigin,
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Authorization, Content-Type, x-workspace-id'
 };
@@ -48,36 +48,46 @@ app.http('uploadAndProcessInvoice', {
             }
             const userCategoryNames = (workspaceDoc.data().categories || []).map(cat => cat.name);
 
-            // --- THIS IS THE DEFINITIVE GROQ IMPLEMENTATION ---
-            // 1. Initialize the Groq client with your API key from environment variables
+            // --- THIS IS THE CORRECTED GROQ IMPLEMENTATION ---
             const groq = new Groq({
                 apiKey: process.env.GROQ_API_KEY
             });
-
-            // 2. The definitive, V3.0 Master Prompt
-            const masterPrompt = `
-You are a world-class, highly precise invoice processing API. Your task is to analyze the raw text from a financial document and convert it into a structured JSON object.
+            
+           const masterPrompt = `
+You are a world-class, highly precise financial document processing API. Your task is to analyze the raw text from a document and convert it into a structured JSON object with an exceptionally high degree of accuracy.
 
 **Instructions:**
-1.  **Identify Primary Invoice:** Analyze the entire document. Find the single main "Tax Invoice" or the document representing the primary purchase. All subsequent tasks must be performed on data from this single, most important document.
 
-2.  **Validity Check:** Determine if this primary document is a valid financial invoice, bill, or receipt. Return a boolean field in your JSON called \`isInvoice\`. If \`isInvoice\` is \`false\`, you do not need to extract any other fields.
+1.  **Identify Primary Financial Document:** Analyze the entire document. Find the single main "Tax Invoice", "Receipt", or "Bill of Sale" that represents the primary transaction. All subsequent tasks must be based on data from this single, most important document.
 
-3.  **Core Field Extraction:** If \`isInvoice\` is \`true\`, extract the following fields. Financial values must be numbers. Dates must be in YYYY-MM-DD format. Use null for missing values.
-    *   \`invoiceId\`: The official invoice number.
-    *   \`vendorName\`: The seller's name.
+2.  **Validity Check:** Determine if this primary document is a valid financial record (invoice, bill, or receipt). Return a boolean field in your JSON called \`isInvoice\`. If it's \`false\`, you must return only \`{ "isInvoice": false }\` and stop processing.
+
+3.  **Core Field Extraction:** If \`isInvoice\` is \`true\`, meticulously extract the following fields. Financial values must be numbers. Dates must be in YYYY-MM-DD format. Use null for any field that is not found.
+    *   \`invoiceId\`: The official invoice, bill, or receipt number.
+    *   \`vendorName\`: The seller's name. **(Improvement)** If the item was "Sold by" one company but "Ordered through" a marketplace like Amazon or Flipkart, prefer the marketplace name.
     *   \`invoiceDate\`: The date the invoice was issued.
     *   \`dueDate\`: The payment due date.
-    *   \`invoiceTotal\`: The final, grand total amount (equivalent to amountDue).
-    *   \`amountPaid\`: The amount already paid. If not specified, assume 0 for invoices and assume it equals invoiceTotal for receipts.
+    *   \`invoiceTotal\`: The final, grand total amount payable.
+    *   \`subTotal\`: The total before taxes and fees.
+    *   \`totalTax\`: The total sum of all taxes (e.g., IGST, CGST, VAT).
+    *   \`totalDiscount\`: The total discount amount.
+    *   \`currency\`: The currency of the invoice (e.g., "INR", "USD"). **(New Field)**
     *   \`lineItems\`: An array of objects for each item purchased, each with a \`description\` and \`amount\`.
 
-4.  **Personalized Categorization:** Based on the \`vendorName\` and \`lineItems\`, choose the single best category for this invoice from the user's PERSONALIZED list provided below. Add this to your JSON with the key \`category\`.
+4.  **Personalized Categorization:** Based on the \`vendorName\` and \`lineItems\`, choose the single best category from the user's PERSONALIZED list provided below.
 
-5.  **Definitive Status Assignment:** Now, determine the invoice's \`status\` using the following precise logic. Today's date is **${new Date().toISOString().split('T')[0]}**.
-    *   If the document is explicitly a "Receipt" or if \`amountPaid\` is greater than or equal to \`invoiceTotal\`, the status MUST be \`Paid\`.
-    *   Otherwise, if today's date is less than or equal to the \`dueDate\`, the status MUST be \`Pending\`.
-    *   Otherwise (if today's date is after the \`dueDate\` and the amount has not been fully paid), the status MUST be \`Overdue\`.
+5.  **Definitive Status Assignment (V4.0 LOGIC - MAJOR UPGRADE):** Now, determine the invoice's \`status\` with high confidence. Apply these rules in strict priority order. Stop as soon as a rule is met. Today's date is **${new Date().toISOString().split('T')[0]}**.
+    *   **Priority 1 (Age Heuristic):** If the \`invoiceDate\` is very old (e.g., more than 90 days before today's date), it is a historical record. The status MUST be \`Paid\`.
+    *   **Priority 2 (Explicit Payment Confirmation):** If the invoice is recent, search the document for definitive proof of payment. This includes:
+        *   Keywords like: "Receipt", "Paid in Full", "Cash Memo", "Payment Confirmation".
+        *   Zero balance indicators like: "Amount Due: 0", "Balance: 0.00".
+        *   Mention of a specific payment method used: "Paid by Visa", "UPI Transaction ID:", "Mode of Payment: Online".
+        *   If any of these are found, the status MUST be \`Paid\`.
+    *   **Priority 3 (Contextual Payment Inference):** If no explicit proof of payment is found, infer the status from the business context.
+        *   If the transaction is from a known prepaid source like an **e-commerce marketplace (Flipkart, Amazon, Myntra)** or an **in-person retail store (supermarket, restaurant)**, the payment was made at the time of purchase. The status MUST be \`Paid\`.
+    *   **Priority 4 (Default Bill Logic):** If the document has passed all the above checks, it is a bill that requires future payment.
+        *   If its \`dueDate\` is in the past, the status MUST be \`Overdue\`.
+        *   Otherwise (if the due date is in the future, "Due on receipt", or not specified), the status MUST be \`Pending\`.
 
 **Personalized Category List:**
 [${userCategoryNames.join(', ')}]
@@ -91,16 +101,16 @@ ${pdfText}
 """
 `;
 
-            // 3. Call the Groq API
             const chatCompletion = await groq.chat.completions.create({
                 messages: [{ role: "user", content: masterPrompt }],
-                model: "llama-3.3-70b-versatile", // Use a powerful and available Groq model
+                model: "llama-3.3-70b-versatile", // Using the correct Groq model ID
                 response_format: { type: "json_object" },
-                temperature: 0.1,            });
+                temperature: 0.1
+            });
 
             const aiResponse = chatCompletion.choices[0]?.message?.content;
             if (!aiResponse) {
-                throw new Error("Groq AI failed to return a valid response.");
+                throw new Error("Groq AI processing failed to return a response.");
             }
             // --- END OF GROQ IMPLEMENTATION ---
 
@@ -110,12 +120,27 @@ ${pdfText}
                 return { status: 400, headers: corsHeaders, jsonBody: { error: "The uploaded document does not appear to be a valid invoice." } };
             }
             
-            const { vendorName, invoiceId, invoiceDate, invoiceTotal, category, status } = parsedData;
+            const { vendorName, invoiceId, invoiceDate, invoiceTotal, lineItems, category, status } = parsedData;
 
             const cosmosClient = new CosmosClient(process.env.AZURE_COSMOS_CONNECTION_STRING);
             const container = cosmosClient.database("InvoiceDB").container("Invoices");
+
+            if (invoiceId) {
+                const { resources: existingById } = await container.items.query({ query: "SELECT c.id FROM c WHERE c.workspaceId=@workspaceId AND c.invoiceId=@invoiceId AND c.docType='invoice'", parameters: [{ name: "@workspaceId", value: workspaceId }, { name: "@invoiceId", value: invoiceId }] }).fetchAll();
+                if (existingById.length > 0) {
+                    return { status: 409, headers: corsHeaders, jsonBody: { error: `Duplicate: An invoice with ID '${invoiceId}' already exists.` } };
+                }
+            } else if (vendorName && invoiceDate && invoiceTotal) {
+                const fingerprint = `${vendorName}-${invoiceDate}-${invoiceTotal}`;
+                const { resources: existingByFingerprint } = await container.items.query({ query: "SELECT c.id FROM c WHERE c.workspaceId=@workspaceId AND c.fingerprint=@fingerprint AND c.docType='invoice'", parameters: [{ name: "@workspaceId", value: workspaceId }, { name: "@fingerprint", value: fingerprint }] }).fetchAll();
+                if (existingByFingerprint.length > 0) {
+                    return { status: 409, headers: corsHeaders, jsonBody: { error: "Duplicate: An invoice from this vendor with the same date and total already exists." } };
+                }
+            }
             
-            // ... (Duplicate check logic is correct)
+            const newFileName = `${uuidv4()}.${file.name.split('.').pop()}`;
+            const blobServiceClient = BlobServiceClient.fromConnectionString(process.env.AZURE_STORAGE_CONNECTION_STRING);
+            await blobServiceClient.getContainerClient("invoice-raw").getBlockBlobClient(newFileName).uploadData(fileBuffer);
             
             let assignedCategory = category;
             if (!userCategoryNames.includes(assignedCategory)) {
@@ -129,7 +154,7 @@ ${pdfText}
                 uploadedBy: userId,
                 invoiceId: invoiceId || null,
                 fingerprint: !invoiceId ? `${vendorName}-${invoiceDate}-${invoiceTotal}` : null,
-                fileName: `${uuidv4()}.${file.name.split('.').pop()}`,
+                fileName: newFileName,
                 status: status || "pending",
                 category: assignedCategory,
                 vendorName: vendorName || "N/A",
@@ -138,9 +163,10 @@ ${pdfText}
                 dueDate: parsedData.dueDate ? new Date(parsedData.dueDate) : null,
                 invoiceTotal: typeof parsedData.invoiceTotal === 'number' ? parsedData.invoiceTotal : 0,
                 subTotal: typeof parsedData.subTotal === 'number' ? parsedData.subTotal : null,
+                totalDiscount: typeof parsedData.totalDiscount === 'number' ? parsedData.totalDiscount : 0,
                 totalTax: typeof parsedData.totalTax === 'number' ? parsedData.totalTax : null,
                 amountPaid: typeof parsedData.amountPaid === 'number' ? parsedData.amountPaid : null,
-                lineItems: parsedData.lineItems || [],
+                lineItems: lineItems || [],
                 uploadedAt: new Date(),
                 currency: parsedData.currency || 'INR'
             };
@@ -150,7 +176,7 @@ ${pdfText}
 
         } catch (err) {
             context.error("Error in uploadAndProcessInvoice:", err);
-            return { status: 500, headers: corsHeaders, jsonBody: { error: "An internal server error occurred." } };
+            return { status: 500, headers: corsHeaders, jsonBody: { error: "An internal server error occurred during processing." } };
         }
     }
 });

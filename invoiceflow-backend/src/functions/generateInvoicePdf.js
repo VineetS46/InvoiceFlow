@@ -47,6 +47,12 @@ app.http('generateInvoicePdf', {
                 return { status: 404, headers: corsHeaders, jsonBody: { error: "Invoice data not found." } };
             }
 
+                 let statusStampHtml = '';
+            const status = (invoice.status || 'pending').toLowerCase();
+            if (status === 'paid' || status === 'pending' || status === 'overdue') {
+                statusStampHtml = `<div class="status-stamp ${status}">${status}</div>`;
+            }
+
             const templatePath = path.resolve(__dirname, '../assets/invoice-template.html');
             let htmlTemplate = fs.readFileSync(templatePath, 'utf-8');
             const logoPath = path.resolve(__dirname, '../assets/logo.png');
@@ -65,6 +71,7 @@ app.http('generateInvoicePdf', {
             });
 
             htmlTemplate = htmlTemplate
+                 .replace('{{STATUS_STAMP_HTML}}', statusStampHtml) // Inject the stamp
                 .replace(new RegExp('{{INVOICE_ID}}', 'g'), invoice.invoiceId || 'N/A')
                 .replace(new RegExp('{{CUSTOMER_NAME}}', 'g'), invoice.customerName || 'N/A')
                 .replace(new RegExp('{{VENDOR_NAME}}', 'g'), invoice.vendorName || 'N/A')

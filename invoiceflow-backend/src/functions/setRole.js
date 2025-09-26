@@ -1,15 +1,18 @@
-// invoiceflow-backend/src/functions/setRole.js (CORRECTED)
+// invoiceflow-backend/src/functions/setRole.js (FINAL & CORRECTED)
+
 const { app } = require('@azure/functions');
-const admin = require('../helpers/firebaseAdmin'); // Now this file exists
-const { validateFirebaseToken } = require('../helpers/firebase-auth'); // This is our other helper
+const { validateFirebaseToken } = require('../helpers/firebase-auth');
+const admin = require('../helpers/firebaseAdmin');
+const db = admin.firestore();
 
 const allowedOrigin = process.env.ALLOWED_ORIGIN || 'http://localhost:3000';
 const corsHeaders = {
-    'Access-Control-Allow-Origin': allowedOrigin,
+   'Access-Control-Allow-Origin': allowedOrigin,
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Authorization, Content-Type'
+    'Access-Control-Allow-Headers': 'Authorization, Content-Type, x-workspace-id'
 };
 
+// Renamed to 'setRole' to match the frontend API call
 app.http('setRole', {
     methods: ['POST', 'OPTIONS'],
     authLevel: 'anonymous',
@@ -18,38 +21,34 @@ app.http('setRole', {
             return { status: 200, headers: corsHeaders, body: '' };
         }
 
-        const callerToken = await validateFirebaseToken(request);
-        
-        // IMPORTANT: The role is on the decoded token itself, not a sub-property
-        if (!callerToken || callerToken.role !== 'admin') {
-            return { status: 403, headers: corsHeaders, body: "Forbidden: You do not have permission." };
-        }
-        
-        let targetUid, newRole;
         try {
-            const body = await request.json();
-            targetUid = body.uid;
-            newRole = body.role;
-        } catch (e) {
-            return { status: 400, headers: corsHeaders, body: "Invalid request body." };
-        }
+            // 1. Authenticate the user just ONCE at the beginning
+            const decodedToken = await validateFirebaseToken(request);
+            if (!decodedToken) {
+                return { status: 401, headers: corsHeaders, jsonBody: { error: "Unauthorized." } };
+            }
 
-        if (!targetUid || !['admin', 'user'].includes(newRole)) {
-            return { status: 400, headers: corsHeaders, body: "Please provide a valid 'uid' and 'role'." };
-        }
+            // 2. Perform the SINGLE, CORRECT security check: Is the caller an admin in Firestore?
+            const callerId = decodedToken.uid;
+            const callerDoc = await db.collection('users').doc(callerId).get();
+            if (!callerDoc.exists() || callerDoc.data().role !== 'admin') {
+                return { status: 403, headers: corsHeaders, jsonBody: { error: "Forbidden: You do not have permission to perform this action." } };
+            }
 
-        try {
-            await admin.auth().setCustomUserClaims(targetUid, { role: newRole });
+            // 3. If the check passes, proceed with the logic
+            const { userId, role } = await request.json();
+            if (!userId || !role) {
+                return { status: 400, headers: corsHeaders, jsonBody: { error: "Missing userId or role in request body." } };
+            }
 
-            const db = admin.firestore();
-            await db.collection('users').doc(targetUid).update({ role: newRole });
+            const userRef = db.collection('users').doc(userId);
+            await userRef.update({ role: role });
 
-            context.log(`Admin ${callerToken.uid} set role of user ${targetUid} to '${newRole}'`);
-            return { status: 200, headers: corsHeaders, body: `Successfully set role for user ${targetUid} to '${newRole}'.` };
+            return { status: 200, headers: corsHeaders, jsonBody: { message: `Successfully set role for user ${userId} to ${role}.` } };
 
         } catch (error) {
-            context.log(`Error setting role for user ${targetUid}:`, error.message);
-            return { status: 500, headers: corsHeaders, body: "An error occurred." };
+            context.log.error('Error in setUserRole:', error);
+            return { status: 500, headers: corsHeaders, jsonBody: { error: 'Internal Server Error' } };
         }
     }
 });

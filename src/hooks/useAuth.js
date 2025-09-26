@@ -65,6 +65,7 @@ export function AuthProvider({ children }) {
   const [currentWorkspace, setCurrentWorkspace] = useState(null);
   const [loading, setLoading] = useState(true);
   const [onboardingRequired, setOnboardingRequired] = useState(false);
+   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -77,6 +78,11 @@ export function AuthProvider({ children }) {
           setOnboardingRequired(false);
           const profile = userDoc.data();
           setUserProfile(profile);
+
+          // *** NEW: Check for admin role from the Firestore document ***
+          const userIsAdmin = profile.role === 'admin';
+          setIsAdmin(userIsAdmin);
+
           if (profile.workspaces && Object.keys(profile.workspaces).length > 0) {
             const firstWorkspaceId = Object.keys(profile.workspaces)[0];
             const workspaceDoc = await getDoc(doc(db, 'workspaces', firstWorkspaceId));
@@ -86,17 +92,20 @@ export function AuthProvider({ children }) {
           }
         } else {
           setOnboardingRequired(true);
+          setIsAdmin(false); // *** NEW: Ensure non-profile users are not admins ***
         }
       } else {
+        // Clear all state on logout
         setCurrentUser(null);
         setUserProfile(null);
         setCurrentWorkspace(null);
         setOnboardingRequired(false);
+        setIsAdmin(false); // *** NEW: Ensure logged-out users are not admins ***
       }
       setLoading(false);
     });
     return unsubscribe;
-  }, []);
+  }, []); // Note: The dependency array is empty, this runs once on mount.
 
   async function signup(email, password, username) {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -184,6 +193,7 @@ export function AuthProvider({ children }) {
     updateWorkspace,
     login,
     loginWithGoogle,
+    isAdmin,
     logout,
   };
 
