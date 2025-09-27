@@ -31,7 +31,7 @@ app.http('setRole', {
             // 2. Perform the SINGLE, CORRECT security check: Is the caller an admin in Firestore?
             const callerId = decodedToken.uid;
             const callerDoc = await db.collection('users').doc(callerId).get();
-            if (!callerDoc.exists() || callerDoc.data().role !== 'admin') {
+            if (!callerDoc.exists || callerDoc.data().role !== 'admin') {
                 return { status: 403, headers: corsHeaders, jsonBody: { error: "Forbidden: You do not have permission to perform this action." } };
             }
 
@@ -40,6 +40,10 @@ app.http('setRole', {
             if (!userId || !role) {
                 return { status: 400, headers: corsHeaders, jsonBody: { error: "Missing userId or role in request body." } };
             }
+            
+                if (callerId === userId && role !== 'admin') {
+                return { status: 403, headers: corsHeaders, jsonBody: { error: "Forbidden: You cannot revoke your own admin privileges." } };
+            }
 
             const userRef = db.collection('users').doc(userId);
             await userRef.update({ role: role });
@@ -47,7 +51,7 @@ app.http('setRole', {
             return { status: 200, headers: corsHeaders, jsonBody: { message: `Successfully set role for user ${userId} to ${role}.` } };
 
         } catch (error) {
-            context.log.error('Error in setUserRole:', error);
+            context.error('Error in setUserRole:', error);
             return { status: 500, headers: corsHeaders, jsonBody: { error: 'Internal Server Error' } };
         }
     }
