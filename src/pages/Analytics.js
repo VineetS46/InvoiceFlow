@@ -146,7 +146,7 @@ const Analytics = () => {
             <KpiCard title="Top Category" value={analyticsData?.kpis?.topCategory || 'N/A'} icon={<Category />} />
         </Grid>
         <Grid item xs={12} md={4}>
-            <KpiCard title="Overdue Invoices" value={analyticsData?.kpis?.overdueCount || 0} icon={<Warning />} colorClass={(analyticsData?.kpis?.overdueCount || 0) > 0 ? 'overdue' : ''} />
+            <KpiCard title="Overdue Amount" value={formatCurrency(analyticsData?.kpis?.overdueTotal || 0)} icon={<Warning />} colorClass={(analyticsData?.kpis?.overdueTotal || 0) > 0 ? 'overdue' : ''} />
         </Grid>
       </Grid>
 

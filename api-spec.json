@@ -1,0 +1,205 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "InvoiceFlow API",
+    "version": "2.0.0",
+    "description": "API for the InvoiceFlow intelligent invoice processing application. This API uses Groq for its AI reasoning."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:7071/api",
+      "description": "Local Development Server"
+    }
+  ],
+  "paths": {
+    "/uploadAndProcessInvoice": {
+      "post": {
+        "summary": "Upload and Process an Invoice",
+        "operationId": "uploadAndProcessInvoice",
+        "security": [ { "bearerAuth": [] } ],
+        "parameters": [
+          {
+            "name": "x-workspace-id",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "The ID of the user's active workspace."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "invoiceFile": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "The PDF or image file of the invoice."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Invoice processed and created successfully." },
+          "400": { "description": "Bad Request (e.g., no file, missing workspace ID)." },
+          "401": { "description": "Unauthorized (Invalid token)." },
+          "409": { "description": "Conflict (Duplicate invoice detected)." },
+          "500": { "description": "Internal Server Error." }
+        }
+      }
+    },
+    "/getInvoices": {
+      "get": {
+        "summary": "Get All Invoices for a Workspace",
+        "operationId": "getInvoices",
+        "security": [ { "bearerAuth": [] } ],
+        "parameters": [
+          {
+            "name": "x-workspace-id",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "The ID of the workspace to fetch invoices for."
+          }
+        ],
+        "responses": {
+          "200": { "description": "A list of invoice objects." }
+        }
+      }
+    },
+    "/getAnalyticsData": {
+      "get": {
+        "summary": "Get Analytics Data",
+        "operationId": "getAnalyticsData",
+        "security": [ { "bearerAuth": [] } ],
+        "parameters": [
+          { "name": "x-workspace-id", "in": "header", "required": true, "schema": { "type": "string" } },
+          { "name": "startDate", "in": "query", "schema": { "type": "string", "format": "date" } },
+          { "name": "endDate", "in": "query", "schema": { "type": "string", "format": "date" } },
+          { "name": "category", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Aggregated analytics data." }
+        }
+      }
+    },
+     "/getDashboardStats": {
+      "get": {
+        "summary": "Get Dashboard Stats",
+        "operationId": "getDashboardStats",
+        "security": [ { "bearerAuth": [] } ],
+        "parameters": [
+          { "name": "x-workspace-id", "in": "header", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Summary statistics for the dashboard." }
+        }
+      }
+    },
+     "/inviteUser": {
+      "post": {
+        "summary": "Invite a New User to a Workspace",
+        "operationId": "inviteUser",
+        "security": [ { "bearerAuth": [] } ],
+        "parameters": [
+          { "name": "x-workspace-id", "in": "header", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": { "type": "string", "example": "employee@example.com" },
+                  "role": { "type": "string", "example": "member" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Invitation sent successfully." }
+        }
+      }
+    },
+    "/generateInvoicePdf": {
+      "get": {
+        "summary": "Generate a PDF Summary of an Invoice",
+        "operationId": "generateInvoicePdf",
+        "security": [ { "bearerAuth": [] } ],
+        "parameters": [
+          { "name": "x-workspace-id", "in": "header", "required": true, "schema": { "type": "string" } },
+          { "name": "id", "in": "query", "required": true, "schema": { "type": "string" }, "description": "The ID of the invoice." },
+          { "name": "action", "in": "query", "schema": { "type": "string", "enum": ["view", "download"] }, "description": "Determines the Content-Disposition header." }
+        ],
+        "responses": {
+          "200": { "description": "The generated PDF file." }
+        }
+      }
+    },
+    "/editinvoice": {
+      "post": {
+        "summary": "Edit an Invoice",
+        "operationId": "editInvoice",
+        "security": [ { "bearerAuth": [] } ],
+        "parameters": [
+          { "name": "x-workspace-id", "in": "header", "required": true, "schema": { "type": "string" } },
+          { "name": "id", "in": "query", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "category": { "type": "string" },
+                  "vendorName": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Invoice updated successfully." }
+        }
+      }
+    },
+    "/markInvoiceAsPaid": {
+      "post": {
+        "summary": "Mark an Invoice as Paid",
+        "operationId": "markInvoiceAsPaid",
+        "security": [ { "bearerAuth": [] } ],
+        "parameters": [
+          { "name": "x-workspace-id", "in": "header", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "properties": { "id": { "type": "string" } } }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Invoice status updated to 'paid'." }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Firebase Authentication ID Token"
+      }
+    }
+  }
+}

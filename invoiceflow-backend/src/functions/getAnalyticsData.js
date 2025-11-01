@@ -55,6 +55,7 @@ app.http('getAnalyticsData', {
 
             let totalSpent = 0;
             let overdueCount = 0;
+            let overdueTotal = 0;
             const today = new Date();
             const monthlyTotals = {};
             const categoryTotals = {};
@@ -66,19 +67,25 @@ app.http('getAnalyticsData', {
                     continue; // Skip this record to prevent a crash
                 }
 
-                if (invoice.status === 'paid') {
-                    totalSpent += invoice.invoiceTotal;
+                let currentStatus = invoice.status;
+                if (currentStatus && currentStatus.toLowerCase() === 'pending' && invoice.dueDate && new Date(invoice.dueDate) < today) {
+                    currentStatus = 'overdue';
                 }
                 
-                if (invoice.status === 'pending' && invoice.dueDate && new Date(invoice.dueDate) < today) {
-                    overdueCount++;
+                if (currentStatus && currentStatus.toLowerCase() === 'paid') {
+                    totalSpent += invoice.invoiceTotal;
+                    
+                    const monthKey = new Date(invoice.invoiceDate).toISOString().slice(0, 7);
+                    monthlyTotals[monthKey] = (monthlyTotals[monthKey] || 0) + invoice.invoiceTotal;
+
+                    const category = invoice.category || 'Uncategorized';
+                    categoryTotals[category] = (categoryTotals[category] || 0) + invoice.invoiceTotal;
                 }
-
-                const monthKey = new Date(invoice.invoiceDate).toISOString().slice(0, 7);
-                monthlyTotals[monthKey] = (monthlyTotals[monthKey] || 0) + invoice.invoiceTotal;
-
-                const category = invoice.category || 'Uncategorized';
-                categoryTotals[category] = (categoryTotals[category] || 0) + invoice.invoiceTotal;
+                
+                if (currentStatus && currentStatus.toLowerCase() === 'overdue') {
+                    overdueCount++;
+                    overdueTotal += invoice.invoiceTotal;
+                }
             }
             
             
@@ -96,7 +103,7 @@ app.http('getAnalyticsData', {
                 : 'N/A';
             
             const analyticsData = {
-                kpis: { totalSpent, topCategory, overdueCount },
+                kpis: { totalSpent, topCategory, overdueCount, overdueTotal },
                 spendingByCategory,
                 spendingByMonth,
             };

@@ -251,7 +251,7 @@ const Dashboard = () => {
             
             <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
                 <MenuItem component={Link} to="/invoice-history" onClick={handleMenuClose}>View Details</MenuItem>
-                {selectedInvoice?.status !== 'paid' && (
+                {selectedInvoice?.status?.toLowerCase() !== 'paid' && (
                     <MenuItem onClick={handleMarkAsPaid}>Mark as Paid</MenuItem>
                 )}
             </Menu>

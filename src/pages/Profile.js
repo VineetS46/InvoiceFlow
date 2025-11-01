@@ -147,7 +147,7 @@ const Profile = () => {
         <div className="profile-page">
             <Paper className="main-panel">
                 <div className="panel-header">
-                    <Typography variant="h5" className="panel-title">Profile & Settings</Typography>
+                    <Typography variant="h5" className="panel-title">Profile & Edit Category</Typography>
                 </div>
                 <div className="panel-content">
                     <div className="category-manager-header">

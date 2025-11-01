@@ -12,6 +12,7 @@ import {
   Dashboard as DashboardIcon,
   BarChart as AnalyticsIcon,
   Receipt as InvoiceIcon,
+  Category as CategoryIcon,
   Person as ProfileIcon,
   Group as TeamIcon, // For Team Management
   Security as AdminIcon, // For Admin Panel
@@ -36,7 +37,7 @@ const Layout = ({ children }) => {
       { path: '/', label: 'Dashboard', icon: <DashboardIcon htmlColor="#5d46ff" /> },
       { path: '/analytics', label: 'Analytics', icon: <AnalyticsIcon htmlColor="#5d46ff" /> },
       { path: '/invoice-history', label: 'Invoice History', icon: <InvoiceIcon htmlColor="#5d46ff" /> },
-      { path: '/profile', label: 'Profile', icon: <ProfileIcon htmlColor="#5d46ff" /> },
+      { path: '/profile', label: 'Manage Category', icon: <CategoryIcon htmlColor="#5d46ff" /> },
     ];
 
     // Determine the user's role in the currently active workspace
