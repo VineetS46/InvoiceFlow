@@ -26,7 +26,7 @@ The system is built on an **Event-Driven Serverless Architecture** to ensure sca
 3.  **Intelligence:** Groq (Llama 3) extracts structured JSON (Vendor, Date, Line Items).
 4.  **Storage:** Validated data is stored in **Azure Cosmos DB** with logical isolation.
 
-*(Drag and drop your Architecture/Backend Flowchart image here)*
+<img width="586" height="1604" alt="InvoiceFlow_Backend_Flowchart" src="https://github.com/user-attachments/assets/47f284da-ec99-43c0-b94d-7f423ba28b02" />
 
 ---
 
